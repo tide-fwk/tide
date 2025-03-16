@@ -1,6 +1,11 @@
+//! A slice-like data structure that uses an index type to access elements.
+//!
+//! It is inspired by the `IndexSlice` type from the `rustc` compiler.
+
 use crate::idx::Idx;
 use std::{
     marker::PhantomData,
+    ops::{Index, IndexMut},
     slice::{self, SliceIndex},
 };
 
@@ -17,6 +22,13 @@ impl<I: Idx, T> IntoSliceIdx<I, [T]> for I {
     }
 }
 
+/// A view into contiguous `T`s, indexed by `I` rather than by `usize`.
+///
+/// One common pattern you'll see is code that uses [`IdxVec::from_elem`]
+/// to create the storage needed for a particular "universe" (aka the set of all
+/// the possible keys that need an associated value) then passes that working
+/// area as `&mut IdxSlice<I, T>` to clarify that nothing will be added nor
+/// removed during processing (and, as a bonus, to chase fewer pointers).
 #[derive(PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct IdxSlice<I: Idx, T> {
@@ -157,5 +169,43 @@ impl<I: Idx, T> IdxSlice<I, T> {
             Ok(i) => Ok(Idx::new(i)),
             Err(i) => Err(Idx::new(i)),
         }
+    }
+}
+
+////////// Trait implementations  //////////
+
+impl<I: Idx, T, R: IntoSliceIdx<I, [T]>> Index<R> for IdxSlice<I, T> {
+    type Output = <R::Output as SliceIndex<[T]>>::Output;
+
+    #[inline]
+    fn index(&self, index: R) -> &Self::Output {
+        &self.raw[index.into_slice_idx()]
+    }
+}
+
+impl<I: Idx, T, R: IntoSliceIdx<I, [T]>> IndexMut<R> for IdxSlice<I, T> {
+    #[inline]
+    fn index_mut(&mut self, index: R) -> &mut Self::Output {
+        &mut self.raw[index.into_slice_idx()]
+    }
+}
+
+impl<'a, I: Idx, T> IntoIterator for &'a IdxSlice<I, T> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+
+    #[inline]
+    fn into_iter(self) -> slice::Iter<'a, T> {
+        self.raw.iter()
+    }
+}
+
+impl<'a, I: Idx, T> IntoIterator for &'a mut IdxSlice<I, T> {
+    type Item = &'a mut T;
+    type IntoIter = slice::IterMut<'a, T>;
+
+    #[inline]
+    fn into_iter(self) -> slice::IterMut<'a, T> {
+        self.raw.iter_mut()
     }
 }

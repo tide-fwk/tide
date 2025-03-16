@@ -11,6 +11,19 @@ use std::{
     slice, vec,
 };
 
+/// An owned contiguous collection of `T`s, indexed by `I` rather than by `usize`.
+///
+/// ## Why use this instead of a `Vec`?
+///
+/// An `IdxVec` allows element access only via a specific associated index type, meaning that
+/// trying to use the wrong index type (possibly accessing an invalid element) will fail at
+/// compile time.
+///
+/// It also documents what the index is indexing: in a `HashMap<usize, Something>` it's not
+/// immediately clear what the `usize` means, while a `HashMap<FieldIdx, Something>` makes it obvious.
+///
+/// While it's possible to use `u32` or `usize` directly for `I`,
+/// you almost certainly want to use a newtype for the index type.
 #[derive(PartialEq, Eq, Hash)]
 pub struct IdxVec<I: Idx, T> {
     _marker: PhantomData<I>,
