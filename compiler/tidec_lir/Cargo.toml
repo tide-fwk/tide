@@ -1,6 +1,7 @@
 [package]
-name = "tidec"
+name = "tidec_lir"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+tidec_utils = { path = "../tidec_utils" }

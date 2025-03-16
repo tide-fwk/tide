@@ -1,7 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-# tidy-alphabetical-start
-  "compiler/tidec", "compiler/tidec_lexer",
-# tidy-alphabetical-end
+    # tidy-alphabetical-start
+    "compiler/tidec",
+    "compiler/tidec_lir",
+    "compiler/tidec_utils",
+    # tidy-alphabetical-end
 ]
