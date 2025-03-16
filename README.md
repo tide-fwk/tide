@@ -1,1 +1,1 @@
-# The Tide Programming Language
+# The Tide Compiler Framework
