@@ -2,6 +2,6 @@
 resolver = "2"
 members = [
 # tidy-alphabetical-start
-  "compiler/tidec",
+  "compiler/tidec", "compiler/tidec_lexer",
 # tidy-alphabetical-end
 ]
