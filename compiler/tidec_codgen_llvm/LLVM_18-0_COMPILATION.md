@@ -29,6 +29,16 @@ ninja -C build check-llvm
 ninja -C build install
 ```
 
+# Extending `swap` memory
+
+```shell
+swapon --show
+sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+```
+
 # DON'T USE `cmake` to build and install LLVM
 
 `cmake` 3.18 has a [bug][cmake-issue] ([LLVM issue][llvm-issue]) that causes the build to fail.
