@@ -1,28 +1,8 @@
-use inkwell::builder::Builder;
-use inkwell::context::Context;
-use inkwell::execution_engine::{ExecutionEngine, JitFunction};
-use inkwell::module::Module;
-use inkwell::OptimizationLevel;
+mod lib;
 
-use std::error::Error;
 use std::path::Path;
 
-
-struct CodeGen<'ctx> {
-    context: &'ctx Context,
-    module: Module<'ctx>,
-    builder: Builder<'ctx>,
-}
-
-impl CodeGen<'_> {
-    fn new<'ctx>(context: &'ctx Context, module: Module<'ctx>, builder: Builder<'ctx>) -> CodeGen<'ctx> {
-        CodeGen {
-            context,
-            module,
-            builder,
-        }
-    }
-}
+use lib::{CodeGenBuilder, CodeGenCtx};
 
 // cargo run --bin tidec_codgen_llvm; clang main.ll -o main; ./main; echo $?
 //
@@ -34,15 +14,12 @@ impl CodeGen<'_> {
 // }
 // ```
 fn main() {
-    let context = Context::create();
-    let builder = context.create_builder();
-    let module = context.create_module("main");
-    let codegen = CodeGen::new(&context, module, builder);
+    let codegen = CodeGenBuilder::new(CodeGenCtx::new("main"));
 
-    let i32_type = codegen.context.i32_type();
+    let i32_type = codegen.ctx.ll_context.i32_type();
     let fn_type = i32_type.fn_type(&[], false);
-    let function = codegen.module.add_function("main", fn_type, None);
-    let basic_block = context.append_basic_block(function, "entry");
+    let function = codegen.ctx.ll_module.add_function("main", fn_type, None);
+    let basic_block = codegen.ctx.ll_context.append_basic_block(function, "entry");
     // It is important to set the position at the end of the basic block, which in this case is the
     // start of the entry block.
     codegen.builder.position_at_end(basic_block);
@@ -59,6 +36,6 @@ fn main() {
     let deref_0 = codegen.builder.build_load(i32_type, _0, "_0").unwrap();
     codegen.builder.build_return(Some(&deref_0)).unwrap();
 
-    codegen.module.print_to_file(Path::new("main.ll")).unwrap();
+    codegen.ctx.ll_module.print_to_file(Path::new("main.ll")).unwrap();
     // module.print_to_stderr();
 }
