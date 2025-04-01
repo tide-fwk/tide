@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# tidy-alphabetical-start
 tidec_utils = { path = "../tidec_utils" }
+# tidy-alphabetical-end

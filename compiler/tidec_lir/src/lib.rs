@@ -1,2 +1,3 @@
 mod basic_blocks;
-mod syntax;
+pub mod syntax;
+pub mod lir;

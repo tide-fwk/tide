@@ -2,25 +2,13 @@
 //!
 //! It is inspired by the `IndexSlice` type from the `rustc` compiler.
 
-use crate::idx::Idx;
+use crate::idx::{Idx, IntoSliceIdx};
 use std::{
     marker::PhantomData,
-    ops::{Index, IndexMut},
+    ops::{Index, IndexMut, RangeFrom},
     slice::{self, SliceIndex},
 };
 
-pub trait IntoSliceIdx<I, T: ?Sized> {
-    type Output: SliceIndex<T>;
-    fn into_slice_idx(self) -> Self::Output;
-}
-
-impl<I: Idx, T> IntoSliceIdx<I, [T]> for I {
-    type Output = usize;
-    #[inline]
-    fn into_slice_idx(self) -> Self::Output {
-        self.idx()
-    }
-}
 
 /// A view into contiguous `T`s, indexed by `I` rather than by `usize`.
 ///
