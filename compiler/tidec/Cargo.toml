@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# tidy-alphabetical-start
+inkwell = { git = "https://github.com/stevefan1999-personal/inkwell", rev = "0732f8dcb7b2b7f8edc25895d6dbd37ba439672c", features = [ "llvm19-1" ] }
+tidec_codegen_llvm = { path = "../tidec_codegen_llvm" }
+# tidy-alphabetical-end
