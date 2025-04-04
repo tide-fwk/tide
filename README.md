@@ -22,7 +22,7 @@
 
 [Region Inference for an Object-Oriented Language]: https://dl.acm.org/doi/pdf/10.1145/996893.996871
 
-[Memory safety without runtime checks or garbage collection]: https://dl.acm.org/doi/abs/10.1145/780732.780743:
+[Memory safety without runtime checks or garbage collection]: https://dl.acm.org/doi/abs/10.1145/780732.780743
 
 [Ensuring code safety without runtime checks for real-time control systems]: https://dl.acm.org/doi/abs/10.1145/581630.581678
 
