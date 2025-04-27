@@ -1,7 +1,15 @@
 use std::path::Path;
 
 use inkwell::context::Context;
-use tidec_codegen_llvm::{CodeGen, CodeGenBuilder, CodeGenCtx};
+use inkwell::types::BasicType;
+use inkwell::values::{BasicValueEnum, IntValue};
+use tidec_abi::{CodegenBackend, TargetDataLayout};
+use tidec_codegen_llvm::builder::CodegenBuilder;
+use tidec_codegen_llvm::context::CodegenCtx;
+use tidec_codegen_llvm::lir::types::BasicTypesUtils;
+use tidec_codegen_llvm::CodegenMethods;
+use tidec_lir::lir::LirTyCtx;
+use tidec_lir::syntax::LirTy;
 
 // cargo run; clang main.ll -o main; ./main; echo $?
 //
@@ -13,11 +21,13 @@ use tidec_codegen_llvm::{CodeGen, CodeGenBuilder, CodeGenCtx};
 // }
 // ```
 fn main() {
+    let lir_ctx = LirTyCtx::new(CodegenBackend::Llvm, TargetDataLayout::default());
+
     let context = Context::create();
     let module = context.create_module("main");
     // let builder = context.create_builder();
-    let code_gen_ctx = CodeGenCtx::new(&context, module);
-    let codegen = CodeGenBuilder::from(code_gen_ctx);
+    let code_gen_ctx = CodegenCtx::new(lir_ctx, &context, module);
+    let codegen = CodegenBuilder::with_ctx(&code_gen_ctx);
 
     let i32_type = codegen.ctx.ll_context.i32_type();
     let fn_type = i32_type.fn_type(&[], false);
@@ -37,6 +47,14 @@ fn main() {
     // Dereference the _0 and return it
     let deref_0 = codegen.builder.build_load(i32_type, _0, "_0").unwrap();
     codegen.builder.build_return(Some(&deref_0)).unwrap();
+
+    // BEGIN TEST ===================
+    let int_value = LirTy::I8.into_basic_type(codegen.ctx).size_of().unwrap();
+    let align = int_value.get_type().get_alignment();
+    println!("Size of i8: {}", int_value);
+    println!("Alignment of i8: {}", align);
+
+    // END   TEST ===================
 
     codegen
         .ctx

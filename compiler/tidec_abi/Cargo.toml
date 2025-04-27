@@ -1,0 +1,8 @@
+[package]
+name = "tidec_abi"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# tidy-alphabetical-start
+# tidy-alphabetical-end

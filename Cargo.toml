@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     # tidy-alphabetical-start
-    "compiler/tidec",
+    "compiler/tidec", "compiler/tidec_abi",
     "compiler/tidec_codegen_llvm",
     "compiler/tidec_lir",
     "compiler/tidec_utils",

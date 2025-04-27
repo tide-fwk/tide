@@ -9,7 +9,6 @@ use std::{
     slice::{self, SliceIndex},
 };
 
-
 /// A view into contiguous `T`s, indexed by `I` rather than by `usize`.
 ///
 /// One common pattern you'll see is code that uses [`IdxVec::from_elem`]

@@ -1,160 +1,130 @@
-pub mod lir;
+pub mod builder;
+pub mod context;
+pub mod lir; // FIXME
 
 use std::ops::Deref;
 
+use builder::CodegenBuilder;
+use context::CodegenCtx;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
+use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType};
 use inkwell::values::FunctionValue;
 use inkwell::{basic_block::BasicBlock, builder::Builder};
 
-use lir::types::{IntoBasicType, IntoBasicTypeMetadata};
-use tidec_lir::lir::{LirBody, Metadata};
-use tidec_lir::syntax::RETURN_PLACE;
+use lir::types::BasicTypesUtils;
+use tidec_abi::TyAndLayout;
+use tidec_lir::lir::{LirBody, LirTyCtx, LirUnit};
+use tidec_lir::syntax::{LirTy, Local, LocalData, RETURN_PLACE};
+use tidec_utils::index_vec::IdxVec;
 
-pub trait CodeGen<'ll> {
-    fn new(ll_context: &'ll Context, ll_module: Module<'ll>) -> Self;
+// TODO: This trait should be generic over the LLVM backend.
+pub trait CodegenMethods<'ll> {
+    fn new(lir_ty_ctx: LirTyCtx, ll_context: &'ll Context, ll_module: Module<'ll>) -> Self;
     fn get_fn(&self, name: &str) -> Option<FunctionValue<'ll>>;
     fn new_fn(&self, lir_body: &LirBody) -> FunctionValue<'ll>;
 }
 
-pub struct CodeGenCtx<'ll> {
-    // FIXME: Make this private
-    pub ll_context: &'ll Context,
-    pub ll_module: Module<'ll>,
-}
-
-impl<'ll> CodeGenCtx<'ll> {
-    fn declare_fn(
-        &self,
-        ret_ty: BasicTypeEnum<'ll>,
-        param_tys: &[BasicMetadataTypeEnum<'ll>],
-    ) -> FunctionType<'ll> {
-        let fn_ty = match ret_ty {
-            BasicTypeEnum::IntType(int_type) => int_type.fn_type(param_tys, false),
-            BasicTypeEnum::ArrayType(array_type) => array_type.fn_type(param_tys, false),
-            BasicTypeEnum::FloatType(float_type) => float_type.fn_type(param_tys, false),
-            BasicTypeEnum::PointerType(pointer_type) => pointer_type.fn_type(param_tys, false),
-            BasicTypeEnum::StructType(struct_type) => struct_type.fn_type(param_tys, false),
-            BasicTypeEnum::VectorType(vector_type) => vector_type.fn_type(param_tys, false),
-        };
-
-        fn_ty
-    }
-}
-
-impl<'ll> CodeGen<'ll> for CodeGenCtx<'ll> {
-    fn new(ll_context: &'ll Context, ll_module: Module<'ll>) -> CodeGenCtx<'ll> {
-        CodeGenCtx {
-            ll_context,
-            ll_module,
-        }
-    }
-
-    fn get_fn(&self, name: &str) -> Option<FunctionValue<'ll>> {
-        self.ll_module.get_function(name)
-    }
-
-    fn new_fn(&self, lir_body: &LirBody) -> FunctionValue<'ll> {
-        let name = lir_body.metadata.name.as_str();
-
-        if let Some(f) = self.get_fn(name) {
-            return f;
-        }
-
-        let ret_ty = lir_body.ret_args[RETURN_PLACE].ty.into_basic_type(&self);
-        let formal_param_tys = lir_body.ret_args.as_slice()[RETURN_PLACE..]
-            .iter()
-            .map(|local_data| local_data.ty.into_basic_type_metadata(&self))
-            .collect::<Vec<_>>();
-
-        let fn_ty = self.declare_fn(ret_ty, formal_param_tys.as_slice());
-        let fn_val = self.ll_module.add_function(name, fn_ty, None);
-
-        fn_val
-    }
-}
-
-impl Deref for CodeGenCtx<'_> {
-    type Target = Context;
-
-    fn deref(&self) -> &Self::Target {
-        self.ll_context
-    }
-}
-
-pub struct CodeGenBuilder<'ll> {
-    pub builder: Builder<'ll>,
-    pub ctx: CodeGenCtx<'ll>,
-}
-
-impl<'ll> From<CodeGenCtx<'ll>> for CodeGenBuilder<'ll> {
-    fn from(ctx: CodeGenCtx<'ll>) -> Self {
-        CodeGenBuilder {
-            builder: ctx.ll_context.create_builder(),
-            ctx,
-        }
-    }
-}
-
 // =================
 
-pub trait BuilderMethods<'ll> {
-    type CodeGenCtx: CodeGen<'ll>;
+// TODO: Make CodegenMethods generic (not LLVM specific)
+pub trait BuilderMethods<'a, 'll> {
+    type CodegenCtx: CodegenMethods<'ll>;
 
-    fn build(ctx: Self::CodeGenCtx, llbb: BasicBlock) -> Self;
+    fn build(ctx: &'a Self::CodegenCtx, llbb: BasicBlock) -> Self;
 
     fn append_basic_block(
-        ctx: &Self::CodeGenCtx,
-        fn_value: FunctionValue<'ll>,
+        ctx: &Self::CodegenCtx,
+        fn_value: FunctionValue<'ll>, // TODO: Make FunctionValue generic
         name: &str,
     ) -> BasicBlock<'ll>;
+
+    fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy>;
 }
 
-impl<'ll> BuilderMethods<'ll> for CodeGenBuilder<'ll> {
-    type CodeGenCtx = CodeGenCtx<'ll>;
-
-    /// Create a new CodeGenBuilder from a CodeGenCtx and a BasicBlock.
-    /// The builder is positioned at the end of the BasicBlock.
-    fn build(ctx: Self::CodeGenCtx, llbb: BasicBlock) -> Self {
-        let builder = CodeGenBuilder::from(ctx);
-        builder.builder.position_at_end(llbb);
-        builder
-    }
-
-    /// Append a new basic block to the function.
-    fn append_basic_block(
-        ctx: &Self::CodeGenCtx,
-        fn_value: FunctionValue<'ll>,
-        name: &str,
-    ) -> BasicBlock<'ll> {
-        ctx.ll_context.append_basic_block(fn_value, name)
-    }
-}
-
-struct FnCtx {
+struct FnCtx<'a, 'll, B: BuilderMethods<'a, 'll>> {
     // pub locals: IdxVec<Local, LocalRef>,
+    /// The body of the function in LIR.
+    lir_body: LirBody,
+
+    /// The LLVM function value.
+    /// This is the function that will be generated.
+    llfn_value: FunctionValue<'ll>,
+
+    /// The LLVM codegen context.
+    ctx: &'a B::CodegenCtx,
+
+    // The allocated locals and temporaries for the function.
+    locals: IdxVec<Local, BasicTypeEnum<'ll>>,
 }
 
-fn compile_lir_body<'ll, B: BuilderMethods<'ll>>(ctx: B::CodeGenCtx, lir_body: LirBody) {
-    let fn_value = ctx.new_fn(&lir_body);
-    let entry_bb = B::append_basic_block(&ctx, fn_value, "entry");
-    let builder = B::build(ctx, entry_bb);
+impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
+    pub fn init_local(&mut self, locals: &IdxVec<Local, LocalData>) {
+        // TODO
+    }
+}
 
-    // Initialize the locals
+fn compile_lir_body<'a, 'll, B: BuilderMethods<'a, 'll>>(
+    ctx: &'a B::CodegenCtx,
+    lir_body: LirBody,
+) {
+    let llfn_value = ctx.new_fn(&lir_body);
+    let entry_bb = B::append_basic_block(&ctx, llfn_value, "entry");
+    let start_builder = B::build(ctx, entry_bb);
+
+    let mut fn_ctx = FnCtx::<'_, '_, B> {
+        lir_body,
+        llfn_value,
+        ctx,
+        locals: IdxVec::new(),
+    };
+
+    let allocate_locals = |fn_value: FunctionValue<'ll>,
+                           locals: &IdxVec<Local, LocalData>|
+     -> IdxVec<Local, BasicTypeEnum<'ll>> {
+        let mut local_allocas = IdxVec::new();
+
+        for (local, local_data) in locals.iter_enumerated() {
+            let layout = start_builder.layout_of(local_data.ty);
+            // let alloca =
+            // local_allocas[local] = alloca;
+        }
+
+        local_allocas
+    };
+
+    // Allocate the return value and arguments
+    let mut locals = allocate_locals(fn_ctx.llfn_value, &fn_ctx.lir_body.ret_and_args);
+    // Allocate the locals
+    locals.append(&mut allocate_locals(
+        fn_ctx.llfn_value,
+        &fn_ctx.lir_body.locals,
+    ));
+
+    // Initialize the locals in the function context
+    fn_ctx.locals = locals;
 
     // Compile the basic blocks
-    for bb in lir_body.basic_blocks.iter() {
-        // let llbb = LLVMBasicBlock::from(bb);
-        // let builder = CodeGenBuilder::new(ctx);
+    // for bb in lir_body.basic_blocks.iter() {
+    // let llbb = LLVMBasicBlock::from(bb);
+    // let builder = CodeGenBuilder::new(ctx);
+    // }
+}
+
+fn compile_lir_unit<'a, 'll, B: BuilderMethods<'a, 'll>>(
+    ctx: &'a B::CodegenCtx,
+    lir_unit: LirUnit,
+) {
+    // Create the functions
+    for lir_body in lir_unit.body {
+        compile_lir_body::<B>(ctx, lir_body);
     }
 }
 
-fn compile_codegen_unit<'ll, B: BuilderMethods<'ll>>(metadata: Metadata, lir_body: LirBody) {
+fn compile_codegen_unit<'ll>(lir_ty_ctx: LirTyCtx, lir_unit: LirUnit) {
     let ll_context = Context::create();
-    let ll_module = ll_context.create_module(&metadata.module_name);
-    let ctx = CodeGenCtx::new(&ll_context, ll_module);
+    let ll_module = ll_context.create_module(&lir_unit.metadata.unit_name);
+    let ctx = CodegenCtx::new(lir_ty_ctx, &ll_context, ll_module);
 
-    // FIXME: for each body we need to create a function
-    compile_lir_body::<CodeGenBuilder>(ctx, lir_body);
+    compile_lir_unit::<CodegenBuilder>(&ctx, lir_unit);
 }

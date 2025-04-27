@@ -15,6 +15,9 @@ pub enum LirTy {
 #[derive(Eq, PartialEq)]
 pub struct Local(usize);
 
+#[derive(Eq, PartialEq)]
+pub struct Body(usize);
+
 pub const RETURN_PLACE: Local = Local(0);
 
 pub(crate) enum RValue {
@@ -24,6 +27,7 @@ pub(crate) enum RValue {
 #[derive(Copy, Clone)]
 pub struct LocalData {
     pub ty: LirTy,
+    pub mutable: bool,
 }
 
 /// A statement in a basic block.
@@ -52,6 +56,24 @@ pub(crate) enum Terminator {
 impl Idx for Local {
     fn new(idx: usize) -> Self {
         Local(idx)
+    }
+
+    fn idx(&self) -> usize {
+        self.0
+    }
+
+    fn incr(&mut self) {
+        self.0 += 1;
+    }
+
+    fn incr_by(&mut self, by: usize) {
+        self.0 += by;
+    }
+}
+
+impl Idx for Body {
+    fn new(idx: usize) -> Self {
+        Body(idx)
     }
 
     fn idx(&self) -> usize {
