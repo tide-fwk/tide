@@ -2,7 +2,7 @@ use crate::{
     basic_blocks::{BasicBlock, BasicBlockData},
     syntax::{Body, LirTy, Local, LocalData},
 };
-use tidec_abi::{CodegenBackend, TargetDataLayout, TyAndLayout};
+use tidec_abi::{CodegenBackend, Target, TargetDataLayout, TyAndLayout};
 use tidec_utils::index_vec::IdxVec;
 
 #[derive(Eq, PartialEq)]
@@ -46,19 +46,17 @@ pub struct LirUnit {
 }
 
 pub struct LirTyCtx {
-    codegen_backend: CodegenBackend,
-
-    /// The target data layout.
-    target_data_layout: TargetDataLayout,
+    target: Target,
 }
 
 impl LirTyCtx {
-    /// Create a new LIR type context.
-    pub fn new(codegen_backend: CodegenBackend, target_data_layout: TargetDataLayout) -> Self {
-        LirTyCtx {
-            codegen_backend,
-            target_data_layout,
-        }
+    pub fn new(codegen_backend: CodegenBackend) -> Self {
+        let target = Target::new(codegen_backend);
+        LirTyCtx { target }
+    }
+
+    pub fn target(&self) -> &Target {
+        &self.target
     }
 
     pub fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy> {

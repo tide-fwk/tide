@@ -2,8 +2,7 @@ use std::path::Path;
 
 use inkwell::context::Context;
 use inkwell::types::BasicType;
-use inkwell::values::{BasicValueEnum, IntValue};
-use tidec_abi::{CodegenBackend, TargetDataLayout};
+use tidec_abi::CodegenBackend;
 use tidec_codegen_llvm::builder::CodegenBuilder;
 use tidec_codegen_llvm::context::CodegenCtx;
 use tidec_codegen_llvm::lir::types::BasicTypesUtils;
@@ -21,7 +20,7 @@ use tidec_lir::syntax::LirTy;
 // }
 // ```
 fn main() {
-    let lir_ctx = LirTyCtx::new(CodegenBackend::Llvm, TargetDataLayout::default());
+    let lir_ctx = LirTyCtx::new(CodegenBackend::Llvm);
 
     let context = Context::create();
     let module = context.create_module("main");

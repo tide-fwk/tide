@@ -6,9 +6,107 @@ pub enum CodegenBackend {
     Cranelift,
 }
 
-pub struct AbiSize(pub u64);
-pub struct AbiAlign(pub u64);
+// TODO: Other address spaces.
+pub enum AddressSpace {
+    /// The default address space.
+    DATA = 0,
+}
 
+impl From<&AddressSpace> for u32 {
+    fn from(addr_space: &AddressSpace) -> Self {
+        match *addr_space {
+            AddressSpace::DATA => 0,
+        }
+    }
+}
+
+/// Size of a type in bytes.
+pub struct Size(u64);
+
+impl Size {
+    /// Rounds `bits` up to the next-higher byte boundary, if `bits` is
+    /// not a multiple of 8.
+    pub fn from_bits(bits: impl TryInto<u64>) -> Size {
+        let bits = bits.try_into().ok().unwrap();
+        // Avoid potential overflow from `bits + 7`.
+        Size(bits / 8 + ((bits % 8) + 7) / 8)
+    }
+
+    /// Returns the size in bytes.
+    pub fn bytes(&self) -> u64 {
+        self.0
+    }
+}
+
+#[derive(Debug)]
+pub enum AlignError {
+    TooLarge(u64),
+    NotPowerOfTwo(u64),
+}
+
+/// Alignment of a type in bytes (always a power of two).
+pub struct Align(u64);
+
+impl Align {
+    #[inline]
+    pub fn from_bits(bits: u64) -> Result<Align, AlignError> {
+        Align::from_bytes(Size::from_bits(bits).bytes())
+    }
+
+    #[inline]
+    pub const fn from_bytes(align: u64) -> Result<Align, AlignError> {
+        // Treat an alignment of 0 bytes like 1-byte alignment.
+        if align == 0 {
+            return Ok(Align(1));
+        }
+
+        #[cold]
+        const fn not_power_of_2(align: u64) -> AlignError {
+            AlignError::NotPowerOfTwo(align)
+        }
+
+        #[cold]
+        const fn too_large(align: u64) -> AlignError {
+            AlignError::TooLarge(align)
+        }
+
+        let tz = align.trailing_zeros();
+        if align != (1 << tz) {
+            return Err(not_power_of_2(align));
+        }
+
+        if align > u64::MAX / 8 {
+            return Err(too_large(align));
+        }
+
+        Ok(Align(align))
+    }
+
+    #[inline]
+    pub const fn bytes(&self) -> u64 {
+        self.0
+    }
+}
+
+/// Alignment and preferred alignment of a type in bytes (always a power of two).
+/// LLVM uses the same alignment for both ABI and preferred alignment, if the
+/// preferred alignment is not specified.
+pub struct AbiAndPrefAlign {
+    pub abi: Align,
+    pub pref: Align,
+}
+
+impl AbiAndPrefAlign {
+    pub fn new(abi: u64, pref: u64) -> Self {
+        Self {
+            abi: Align::from_bits(abi).unwrap(),
+            pref: Align::from_bits(pref).unwrap(),
+        }
+    }
+}
+
+#[derive(PartialEq, Eq)]
+/// The endianness of the target architecture.
 pub enum Endianess {
     /// Little-endian.
     Little,
@@ -19,72 +117,127 @@ pub enum Endianess {
 
 pub struct TargetDataLayout {
     pub endianess: Endianess,
-    pub i1_align: AbiAlign,
-    pub i8_align: AbiAlign,
-    pub i16_align: AbiAlign,
-    pub i32_align: AbiAlign,
-    pub i64_align: AbiAlign,
-    pub i128_align: AbiAlign,
-    pub f16_align: AbiAlign,
-    pub f32_align: AbiAlign,
-    pub f64_align: AbiAlign,
-    pub f128_align: AbiAlign,
+    pub i1_align: AbiAndPrefAlign,
+    pub i8_align: AbiAndPrefAlign,
+    pub i16_align: AbiAndPrefAlign,
+    pub i32_align: AbiAndPrefAlign,
+    pub i64_align: AbiAndPrefAlign,
+    pub i128_align: AbiAndPrefAlign,
+    pub f16_align: AbiAndPrefAlign,
+    pub f32_align: AbiAndPrefAlign,
+    pub f64_align: AbiAndPrefAlign,
+    pub f128_align: AbiAndPrefAlign,
 
     /// The size of pointers in bytes.
     pub pointer_size: u64,
 
-    pub pointer_align: AbiAlign,
-    pub aggregate_align: AbiAlign,
+    pub pointer_align: AbiAndPrefAlign,
+    pub aggregate_align: AbiAndPrefAlign,
 
     /// Alignments for vector types.
-    pub vector_align: Vec<(u64, AbiAlign)>,
+    pub vector_align: Vec<(Size, AbiAndPrefAlign)>,
 
     /// An identifier that specifies the address space that some operation
     /// should operate on. Special address spaces have an effect on code generation,
     /// depending on the target and the address spaces it implements.
-    ///
-    /// When `0`, which is the default address space, corresponds to the data space.
-    pub instruction_address_space: u32,
+    pub instruction_address_space: AddressSpace,
 }
 
 impl Default for TargetDataLayout {
     fn default() -> Self {
         TargetDataLayout {
             endianess: Endianess::Big,
-            i1_align: AbiAlign(8),
-            i8_align: AbiAlign(8),
-            i16_align: AbiAlign(16),
-            i32_align: AbiAlign(32),
-            i64_align: AbiAlign(32),
-            i128_align: AbiAlign(32),
-            f16_align: AbiAlign(16),
-            f32_align: AbiAlign(32),
-            f64_align: AbiAlign(64),
-            f128_align: AbiAlign(128),
+            i1_align: AbiAndPrefAlign::new(8, 8),
+            i8_align: AbiAndPrefAlign::new(8, 8),
+            i16_align: AbiAndPrefAlign::new(16, 16),
+            i32_align: AbiAndPrefAlign::new(32, 32),
+            i64_align: AbiAndPrefAlign::new(32, 64),
+            i128_align: AbiAndPrefAlign::new(32, 64),
+            f16_align: AbiAndPrefAlign::new(16, 16),
+            f32_align: AbiAndPrefAlign::new(32, 32),
+            f64_align: AbiAndPrefAlign::new(64, 64),
+            f128_align: AbiAndPrefAlign::new(128, 128),
             pointer_size: 64,
-            pointer_align: AbiAlign(64),
-            aggregate_align: AbiAlign(0),
-            vector_align: vec![(64, AbiAlign(64)), (128, AbiAlign(128))],
-            instruction_address_space: 0,
+            pointer_align: AbiAndPrefAlign::new(64, 64),
+            aggregate_align: AbiAndPrefAlign::new(0, 64),
+            vector_align: vec![
+                (Size::from_bits(64), AbiAndPrefAlign::new(64, 64)),
+                (Size::from_bits(128), AbiAndPrefAlign::new(128, 128)),
+            ],
+            instruction_address_space: AddressSpace::DATA,
         }
     }
-}
-
-pub struct TyAndLayout<T> {
-    pub ty: T,
-    pub size: AbiSize,
-    pub align: AbiAlign,
 }
 
 impl TargetDataLayout {
-    pub fn new(codegen_backend: CodegenBackend) -> Self {
-        match codegen_backend {
-            CodegenBackend::Llvm => todo!(),
-            CodegenBackend::Cranelift => unimplemented!(),
+    pub fn new() -> Self {
+        TargetDataLayout::default()
+    }
+
+    /// For example, for x86_64-unknown-linux-gnu, the data layout string could be:
+    /// `e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128`
+    pub fn into_llvm_datalayout_string(&self) -> String {
+        let format_align = |name: &str, align: &AbiAndPrefAlign| {
+            format!("-{}:{}:{}", name, align.abi.bytes(), align.pref.bytes())
+        };
+
+        let mut s = String::new();
+
+        // Add endianess
+        s.push(if self.endianess == Endianess::Little {
+            'e'
+        } else {
+            'E'
+        });
+
+        // Add pointer and integer alignments
+        s.push_str(&format!(
+            "-p:{}:{}:{}",
+            self.pointer_size,
+            self.pointer_align.abi.bytes(),
+            self.pointer_align.pref.bytes()
+        ));
+
+        // Format for integer types
+        s.push_str(&format_align("i1", &self.i1_align));
+        s.push_str(&format_align("i8", &self.i8_align));
+        s.push_str(&format_align("i16", &self.i16_align));
+        s.push_str(&format_align("i32", &self.i32_align));
+        s.push_str(&format_align("i64", &self.i64_align));
+        s.push_str(&format_align("i128", &self.i128_align));
+
+        // Format for floating point types
+        s.push_str(&format_align("f16", &self.f16_align));
+        s.push_str(&format_align("f32", &self.f32_align));
+        s.push_str(&format_align("f64", &self.f64_align));
+        s.push_str(&format_align("f128", &self.f128_align));
+
+        // Aggregate alignment
+        s.push_str(&format_align("a", &self.aggregate_align));
+
+        // Vector alignments
+        for (size, align) in &self.vector_align {
+            s.push_str(&format!(
+                "-v{}:{}:{}",
+                size.bytes(),
+                align.abi.bytes(),
+                align.pref.bytes()
+            ));
         }
+
+        // Instruction address space
+        s.push_str(&format!("-P{}", u32::from(&self.instruction_address_space)));
+
+        s
+    }
+
+    fn into_cranelift_datalayout_string(&self) -> String {
+        unimplemented!()
     }
 
     // /// Parse data layout from an [llvm data layout string](https://llvm.org/docs/LangRef.html#data-layout)
+    // /// For example, for x86_64-unknown-linux-gnu, the data layout string is:
+    // /// `e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128`
     // pub fn parse_from_llvm_datalayout_string<'a>(
     //     input: &'a str,
     // ) -> Result<TargetDataLayout, TargetDataLayoutErrors<'a>> {
@@ -182,4 +335,96 @@ impl TargetDataLayout {
     //     }
     //     Ok(dl)
     // }
+}
+
+/// The target triple is a string that describes the target architecture,
+///
+/// This is a string that describes the target architecture, vendor,
+/// operating system, and environment.
+///
+/// For example, "x86_64-unknown-linux-gnu".
+pub struct TargetTriple {
+    pub arch: String,
+    pub vendor: String,
+    pub os: String,
+    pub env: String,
+    pub abi: String,
+}
+
+impl TargetTriple {
+    pub fn new(arch: &str, vendor: &str, os: &str, env: &str, abi: &str) -> Self {
+        TargetTriple {
+            arch: arch.to_string(),
+            vendor: vendor.to_string(),
+            os: os.to_string(),
+            env: env.to_string(),
+            abi: abi.to_string(),
+        }
+    }
+
+    pub fn into_llvm_triple_string(&self) -> String {
+        format!(
+            "{}-{}-{}-{}-{}",
+            self.arch, self.vendor, self.os, self.env, self.abi
+        )
+    }
+
+    pub fn into_cranelift_triple_string(&self) -> String {
+        unimplemented!()
+    }
+}
+
+pub struct TyAndLayout<T> {
+    pub ty: T,
+    pub size: Size,
+    pub align: AbiAndPrefAlign,
+}
+
+pub struct Target {
+    pub data_layout: TargetDataLayout,
+    pub codegen_backend: CodegenBackend,
+
+    /// If unspecified, the target triple will be not setted
+    /// in the LLVM module.
+    target_triple: Option<TargetTriple>,
+}
+
+impl Target {
+    pub fn new(codegen_backend: CodegenBackend) -> Self {
+        Target {
+            data_layout: TargetDataLayout::new(),
+            codegen_backend,
+            target_triple: None,
+        }
+    }
+
+    // TODO: make it better. Perhaps by using a specific TargetDataLayout for each
+    // compiler backend.
+    pub fn data_layout_string(&self) -> String {
+        match self.codegen_backend {
+            CodegenBackend::Llvm => self.data_layout.into_llvm_datalayout_string(),
+            CodegenBackend::Cranelift => self.data_layout.into_cranelift_datalayout_string(),
+        }
+    }
+
+    // TODO: make it better. Perhaps by using a specific TargetDataLayout for each
+    // compiler backend.
+    pub fn target_triple_string(&self) -> String {
+        if self.target_triple.is_none() {
+            return String::new();
+        }
+
+        match self.codegen_backend {
+            CodegenBackend::Llvm => self
+                .target_triple
+                .as_ref()
+                .unwrap()
+                .into_llvm_triple_string(),
+            CodegenBackend::Cranelift => self
+                .target_triple
+                .as_ref()
+                .unwrap()
+                .into_cranelift_triple_string(),
+        }
+    }
 }
