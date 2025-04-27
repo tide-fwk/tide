@@ -1,7 +1,9 @@
 use std::ops::Deref;
 
 use inkwell::context::Context;
+use inkwell::data_layout::DataLayout;
 use inkwell::module::Module;
+use inkwell::targets::TargetTriple;
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
 use inkwell::values::FunctionValue;
 use inkwell::{basic_block::BasicBlock, builder::Builder};
@@ -54,6 +56,13 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
         ll_context: &'ll Context,
         ll_module: Module<'ll>,
     ) -> CodegenCtx<'ll> {
+        let target = lir_ty_ctx.target();
+        let data_layout_string = target.data_layout_string();
+        let target_triple_string = target.target_triple_string();
+
+        ll_module.set_triple(&TargetTriple::create(&target_triple_string));
+        // ll_module.set_data_layout(&DataLayout::create(&data_layout_string));
+
         CodegenCtx {
             ll_context,
             ll_module,
