@@ -1,0 +1,11 @@
+[package]
+name = "tidec_log"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# tidy-alphabetical-start
+tracing = "0.1.41"
+tracing-core = "0.1.33"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+# tidy-alphabetical-end
