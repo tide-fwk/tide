@@ -9,8 +9,9 @@ use tidec_codegen_llvm::lir::types::BasicTypesUtils;
 use tidec_codegen_llvm::CodegenMethods;
 use tidec_lir::lir::LirTyCtx;
 use tidec_lir::syntax::LirTy;
+use tracing::debug;
 
-// cargo run; clang main.ll -o main; ./main; echo $?
+// TIDEC_LOG=debug cargo run; clang main.ll -o main; ./main; echo $?
 //
 // Create a simple main function that returns the value stored in the first place.
 // ```c
@@ -20,6 +21,9 @@ use tidec_lir::syntax::LirTy;
 // }
 // ```
 fn main() {
+    init_tidec_logger();
+    debug!("logger initialized");
+
     let lir_ctx = LirTyCtx::new(CodegenBackend::Llvm);
 
     let context = Context::create();
@@ -61,4 +65,18 @@ fn main() {
         .print_to_file(Path::new("main.ll"))
         .unwrap();
     // module.print_to_stderr();
+}
+
+/// Initialize the logger for the tidec project.
+fn init_tidec_logger() {
+    match tidec_log::Logger::init_logger(
+        tidec_log::LoggerConfig::from_prefix("TIDEC").unwrap(),
+        tidec_log::FallbackDefaultEnv::No,
+    ) {
+        Err(err) => {
+            eprintln!("Error initializing logger: {:?}", err);
+            std::process::exit(1);
+        }
+        _ => (),
+    }
 }
