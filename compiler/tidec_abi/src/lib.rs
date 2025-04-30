@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum CodegenBackend {
     /// The LLVM backend.
     Llvm,
@@ -7,6 +8,7 @@ pub enum CodegenBackend {
 }
 
 // TODO: Other address spaces.
+#[derive(Debug)]
 pub enum AddressSpace {
     /// The default address space.
     DATA = 0,
@@ -20,6 +22,7 @@ impl From<&AddressSpace> for u32 {
     }
 }
 
+#[derive(Debug)]
 /// Size of a type in bytes.
 pub struct Size(u64);
 
@@ -44,6 +47,7 @@ pub enum AlignError {
     NotPowerOfTwo(u64),
 }
 
+#[derive(Debug)]
 /// Alignment of a type in bytes (always a power of two).
 pub struct Align(u64);
 
@@ -91,6 +95,7 @@ impl Align {
 /// Alignment and preferred alignment of a type in bytes (always a power of two).
 /// LLVM uses the same alignment for both ABI and preferred alignment, if the
 /// preferred alignment is not specified.
+#[derive(Debug)]
 pub struct AbiAndPrefAlign {
     pub abi: Align,
     pub pref: Align,
@@ -105,7 +110,7 @@ impl AbiAndPrefAlign {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 /// The endianness of the target architecture.
 pub enum Endianess {
     /// Little-endian.
@@ -115,6 +120,7 @@ pub enum Endianess {
     Big,
 }
 
+#[derive(Debug)]
 pub struct TargetDataLayout {
     pub endianess: Endianess,
     pub i1_align: AbiAndPrefAlign,
@@ -343,6 +349,7 @@ impl TargetDataLayout {
 /// operating system, and environment.
 ///
 /// For example, "x86_64-unknown-linux-gnu".
+#[derive(Debug)]
 pub struct TargetTriple {
     pub arch: String,
     pub vendor: String,
@@ -380,6 +387,7 @@ pub struct TyAndLayout<T> {
     pub align: AbiAndPrefAlign,
 }
 
+#[derive(Debug)]
 pub struct Target {
     pub data_layout: TargetDataLayout,
     pub codegen_backend: CodegenBackend,

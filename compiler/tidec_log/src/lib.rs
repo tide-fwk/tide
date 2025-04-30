@@ -1,5 +1,16 @@
 //! This crate allows tools to enable rust logging.
 //!
+//! The allowed environment variables are:
+//! - `<PREFIX>_LOG`: The log level. This can be "debug", "info", "warn", "error", or "trace".
+//! - `<PREFIX>_LOG_COLOR`: The color setting. This can be "always", "never", or "auto".
+//! - `<PREFIX>_LOG_WRITER`: The log writer. This can be "stdout", "stderr", or a file path. If the
+//! file path does not exist, it will be created.
+//! - `<PREFIX>_LOG_LINE_NUMBERS`: Whether to show line numbers in the log. This can be "1" or
+//! "0".
+//! The `<PREFIX>` is a prefix that can be set to any string. It is used to customize the log
+//! configuration for different tools. For example, `tidec` uses `TIDEC` as the prefix.
+//!
+//!
 //! Suppose you're working on `tidec_lir` and want to run a minimal standalone
 //! program that can be debugged with access to `debug!` logs emitted by
 //! `tidec_lir`. You can do this by writing:
@@ -14,7 +25,7 @@
 //!
 //! ```rust
 //! fn main() {
-//!     tidec_log::Logger::init_logger(tidec_log::LoggerConfig::from_env("LOG")).unwrap();
+//!     let _ = tidec_log::Logger::init_logger(tidec_log::LoggerConfig::from_prefix("TIDEC").unwrap());
 //!     // Your test code using tidec_lir...
 //! }
 //! ```
@@ -22,13 +33,13 @@
 //! Then run your program with:
 //!
 //! ```bash
-//! LOG=debug cargo run
+//! TIDEC_LOG=debug cargo run
 //! ```
 //!
 //! For convenience, you can also include this at the top of `main`:
 //!
 //! ```rust
-//! std::env::set_var("LOG", "debug");
+//! unsafe { std::env::set_var("TIDEC_LOG", "debug"); }
 //! ```
 //!
 //! This allows you to simply run `cargo run` and still see debug output.
@@ -47,9 +58,10 @@ use tracing_subscriber::{
     EnvFilter, Layer, fmt::layer, prelude::*, registry::LookupSpan, util::TryInitError,
 };
 
-/// The logger for the `tidec` crate.
+/// The ZST (zero-sized type) for the logger.
 pub struct Logger;
 
+#[derive(Debug)]
 /// The writer for the logger.
 /// This is used to determine where the logs will be written to.
 pub enum LogWriter {
@@ -76,8 +88,8 @@ pub struct LoggerConfig {
     pub line_numbers: Result<String, VarError>,
 }
 
-/// The error type for the logger.
 #[derive(Debug)]
+/// The error type for the logger.
 pub enum LogError {
     /// The color value is not valid.
     ColorNotValid(String),
@@ -89,19 +101,29 @@ pub enum LogError {
     TryInitError(TryInitError),
 }
 
+/// The fallback default environment variable for the logger.
+/// That is, if the <PREFIX>_LOG environment variable is not set, this will be used
+/// to determine whether to use the default environment variable (`RUST_LOG`) for the logger.
+pub enum FallbackDefaultEnv {
+    /// Use the default environment variable for the logger.
+    Yes,
+    /// Do not use the default environment variable for the logger.
+    No,
+}
+
 impl LoggerConfig {
     /// Create a new logger configuration from the given environment variable.
-    pub fn from_env(env_var: &str) -> Result<Self, VarError> {
-        let filter = std::env::var(format!("{}_FILTER", env_var));
-        let color = std::env::var(format!("{}_COLOR", env_var));
-        let log_writer = std::env::var(format!("{}_LOG_WRITER", env_var))
+    pub fn from_prefix(prefix_env_var: &str) -> Result<Self, VarError> {
+        let filter = std::env::var(format!("{}_LOG", prefix_env_var));
+        let color = std::env::var(format!("{}_LOG_COLOR", prefix_env_var));
+        let log_writer = std::env::var(format!("{}_LOG_WRITER", prefix_env_var))
             .map(|s| match s.as_str() {
                 "stdout" => LogWriter::Stdout,
                 "stderr" => LogWriter::Stderr,
                 _ => LogWriter::File(s.into()),
             })
             .unwrap_or(LogWriter::Stderr);
-        let line_numbers = std::env::var(format!("{}_LINE_NUMBERS", env_var));
+        let line_numbers = std::env::var(format!("{}_LOG_LINE_NUMBERS", prefix_env_var));
 
         Ok(LoggerConfig {
             filter,
@@ -113,11 +135,19 @@ impl LoggerConfig {
 }
 
 impl Logger {
-    /// Initialize the logger with the given values for the filter, coloring, and other options env variables.
-    pub fn init_logger(cfg: LoggerConfig) -> Result<(), LogError> {
+    pub fn init_logger(
+        cfg: LoggerConfig,
+        fallback_default_env: FallbackDefaultEnv,
+    ) -> Result<(), LogError> {
         let filter = match cfg.filter {
             Ok(filter) => EnvFilter::new(filter),
-            Err(_) => EnvFilter::default().add_directive(tracing::Level::INFO.into()),
+            Err(_) => {
+                if let FallbackDefaultEnv::Yes = fallback_default_env {
+                    EnvFilter::from_default_env()
+                } else {
+                    EnvFilter::default().add_directive(tracing::Level::INFO.into())
+                }
+            }
         };
 
         let color_log = match cfg.color {

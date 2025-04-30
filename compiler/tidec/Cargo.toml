@@ -9,4 +9,6 @@ inkwell = { version = "0.5.0", features = ["llvm18-0"] } # inkwell = { git = "ht
 tidec_abi = { path = "../tidec_abi" }
 tidec_codegen_llvm = { path = "../tidec_codegen_llvm" }
 tidec_lir = { path = "../tidec_lir" }
+tidec_log = { path = "../tidec_log" }
+tracing = "0.1.41"
 # tidy-alphabetical-end

@@ -4,6 +4,7 @@ use crate::{
 };
 use tidec_abi::{CodegenBackend, Target, TargetDataLayout, TyAndLayout};
 use tidec_utils::index_vec::IdxVec;
+use tracing::debug;
 
 #[derive(Eq, PartialEq)]
 pub struct DefId(usize);
@@ -45,6 +46,7 @@ pub struct LirUnit {
     pub body: IdxVec<Body, LirBody>,
 }
 
+#[derive(Debug)]
 pub struct LirTyCtx {
     target: Target,
 }
@@ -52,7 +54,9 @@ pub struct LirTyCtx {
 impl LirTyCtx {
     pub fn new(codegen_backend: CodegenBackend) -> Self {
         let target = Target::new(codegen_backend);
-        LirTyCtx { target }
+        let ctx = LirTyCtx { target };
+        debug!("LirTyCtx created: {:?}", ctx);
+        ctx
     }
 
     pub fn target(&self) -> &Target {
