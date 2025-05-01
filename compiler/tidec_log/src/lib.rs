@@ -55,7 +55,11 @@
 use std::{env::VarError, fs::File, io::IsTerminal, path::PathBuf};
 use tracing::Subscriber;
 use tracing_subscriber::{
-    fmt::{format::FmtSpan, layer}, prelude::*, registry::LookupSpan, util::TryInitError, EnvFilter, Layer
+    EnvFilter, Layer,
+    fmt::{format::FmtSpan, layer},
+    prelude::*,
+    registry::LookupSpan,
+    util::TryInitError,
 };
 
 /// The ZST (zero-sized type) for the logger.
@@ -195,7 +199,7 @@ impl Logger {
         for<'a> S: LookupSpan<'a>,
     {
         let layer = layer()
-            .with_span_events(FmtSpan::FULL)
+            .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE) // FmtSpan::FULL
             .with_ansi(color_log)
             .with_target(true)
             .with_line_number(line_numbers);

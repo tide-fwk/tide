@@ -2,8 +2,8 @@ use crate::{
     basic_blocks::{BasicBlock, BasicBlockData},
     syntax::{Body, LirTy, Local, LocalData},
 };
-use tidec_abi::{CodegenBackend, Target, TargetDataLayout, TyAndLayout};
-use tidec_utils::{index_vec::IdxVec, v_debug};
+use tidec_abi::{CodegenBackend, Target, TyAndLayout};
+use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, instrument};
 
 #[derive(Eq, PartialEq)]
