@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# tidy-alphabetical-start
+tracing = "0.1.41"
+# tidy-alphabetical-end

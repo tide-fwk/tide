@@ -10,5 +10,6 @@ tidec_abi = { path = "../tidec_abi" }
 tidec_codegen_llvm = { path = "../tidec_codegen_llvm" }
 tidec_lir = { path = "../tidec_lir" }
 tidec_log = { path = "../tidec_log" }
+tidec_utils = { path = "../tidec_utils" }
 tracing = "0.1.41"
 # tidy-alphabetical-end

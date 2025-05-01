@@ -3,8 +3,8 @@ use crate::{
     syntax::{Body, LirTy, Local, LocalData},
 };
 use tidec_abi::{CodegenBackend, Target, TargetDataLayout, TyAndLayout};
-use tidec_utils::index_vec::IdxVec;
-use tracing::debug;
+use tidec_utils::{index_vec::IdxVec, v_debug};
+use tracing::{debug, instrument};
 
 #[derive(Eq, PartialEq)]
 pub struct DefId(usize);
@@ -52,6 +52,7 @@ pub struct LirTyCtx {
 }
 
 impl LirTyCtx {
+    #[instrument]
     pub fn new(codegen_backend: CodegenBackend) -> Self {
         let target = Target::new(codegen_backend);
         let ctx = LirTyCtx { target };

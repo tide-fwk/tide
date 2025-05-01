@@ -1,3 +1,5 @@
+// #[macro_use] extern crate tidec_utils;
+//
 use std::path::Path;
 
 use inkwell::context::Context;
@@ -9,7 +11,7 @@ use tidec_codegen_llvm::lir::types::BasicTypesUtils;
 use tidec_codegen_llvm::CodegenMethods;
 use tidec_lir::lir::LirTyCtx;
 use tidec_lir::syntax::LirTy;
-use tracing::debug;
+use tidec_utils::v_debug;
 
 // TIDEC_LOG=debug cargo run; clang main.ll -o main; ./main; echo $?
 //
@@ -22,7 +24,7 @@ use tracing::debug;
 // ```
 fn main() {
     init_tidec_logger();
-    debug!("logger initialized");
+    v_debug!("Logging initialized");
 
     let lir_ctx = LirTyCtx::new(CodegenBackend::Llvm);
 
