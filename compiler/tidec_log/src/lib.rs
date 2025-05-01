@@ -52,7 +52,7 @@
 //! components like `tidec_lir`, without requiring full rebuilds of the entire
 //! compiler stack.
 
-use std::{env::VarError, fs::File, io::IsTerminal, path::PathBuf};
+use std::{env::VarError, fmt::Debug, fs::File, io::IsTerminal, path::PathBuf};
 use tracing::Subscriber;
 use tracing_subscriber::{
     EnvFilter, Layer,
@@ -90,6 +90,9 @@ pub struct LoggerConfig {
     /// Whether to show line numbers in the logger.
     /// If this is set to "1", line numbers will be shown otherwise they will not.
     pub line_numbers: Result<String, VarError>,
+    /// Whether to show file names in the logger.
+    /// If this is set to "1", file names will be shown otherwise they will not.
+    pub file_names: Result<String, VarError>,
 }
 
 #[derive(Debug)]
@@ -128,12 +131,14 @@ impl LoggerConfig {
             })
             .unwrap_or(LogWriter::Stderr);
         let line_numbers = std::env::var(format!("{}_LOG_LINE_NUMBERS", prefix_env_var));
+        let file_names = std::env::var(format!("{}_LOG_FILE_NAMES", prefix_env_var));
 
         Ok(LoggerConfig {
             filter,
             color,
             log_writer,
             line_numbers,
+            file_names,
         })
     }
 }
@@ -174,7 +179,12 @@ impl Logger {
             Err(_) => false,
         };
 
-        let layer = Self::create_layer(cfg.log_writer, color_log, line_numbers);
+        let file_names = match cfg.file_names {
+            Ok(file_names) => &file_names == "1",
+            Err(_) => false,
+        };
+
+        let layer = Self::create_layer(cfg.log_writer, color_log, line_numbers, file_names);
         // Here we can add other layers
 
         let subscriber = tracing_subscriber::Registry::default()
@@ -193,6 +203,7 @@ impl Logger {
         log_writer: LogWriter,
         color_log: bool,
         line_numbers: bool,
+        file_names: bool,
     ) -> Box<dyn Layer<S> + Send + Sync + 'static>
     where
         S: Subscriber,
@@ -200,8 +211,9 @@ impl Logger {
     {
         let layer = layer()
             .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE) // FmtSpan::FULL
-            .with_ansi(color_log)
             .with_target(true)
+            .with_file(file_names)
+            .with_ansi(color_log)
             .with_line_number(line_numbers);
 
         match log_writer {

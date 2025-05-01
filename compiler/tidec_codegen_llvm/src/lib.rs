@@ -1,46 +1,22 @@
 pub mod builder;
 pub mod context;
-pub mod lir; // FIXME
-
-use std::ops::Deref;
+pub mod lir;
+pub mod traits;
 
 use builder::CodegenBuilder;
 use context::CodegenCtx;
+use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType};
+use inkwell::types::BasicTypeEnum;
 use inkwell::values::FunctionValue;
-use inkwell::{basic_block::BasicBlock, builder::Builder};
 
-use lir::types::BasicTypesUtils;
 use tidec_abi::TyAndLayout;
 use tidec_lir::lir::{LirBody, LirTyCtx, LirUnit};
-use tidec_lir::syntax::{LirTy, Local, LocalData, RETURN_PLACE};
+use tidec_lir::syntax::{LirTy, Local, LocalData};
 use tidec_utils::index_vec::IdxVec;
-
-// TODO: This trait should be generic over the LLVM backend.
-pub trait CodegenMethods<'ll> {
-    fn new(lir_ty_ctx: LirTyCtx, ll_context: &'ll Context, ll_module: Module<'ll>) -> Self;
-    fn get_fn(&self, name: &str) -> Option<FunctionValue<'ll>>;
-    fn new_fn(&self, lir_body: &LirBody) -> FunctionValue<'ll>;
-}
-
-// =================
-
-// TODO: Make CodegenMethods generic (not LLVM specific)
-pub trait BuilderMethods<'a, 'll> {
-    type CodegenCtx: CodegenMethods<'ll>;
-
-    fn build(ctx: &'a Self::CodegenCtx, llbb: BasicBlock) -> Self;
-
-    fn append_basic_block(
-        ctx: &Self::CodegenCtx,
-        fn_value: FunctionValue<'ll>, // TODO: Make FunctionValue generic
-        name: &str,
-    ) -> BasicBlock<'ll>;
-
-    fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy>;
-}
+use tracing::instrument;
+use traits::{BuilderMethods, CodegenMethods};
 
 struct FnCtx<'a, 'll, B: BuilderMethods<'a, 'll>> {
     // pub locals: IdxVec<Local, LocalRef>,
@@ -111,6 +87,7 @@ fn compile_lir_body<'a, 'll, B: BuilderMethods<'a, 'll>>(
     // }
 }
 
+#[instrument(skip(ctx, lir_unit))]
 fn compile_lir_unit<'a, 'll, B: BuilderMethods<'a, 'll>>(
     ctx: &'a B::CodegenCtx,
     lir_unit: LirUnit,
