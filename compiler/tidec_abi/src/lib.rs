@@ -369,6 +369,7 @@ impl TargetTriple {
         }
     }
 
+    // ARCHITECTURE-VENDOR-OPERATING_SYSTEM-ENVIRONMENT
     pub fn into_llvm_triple_string(&self) -> String {
         format!(
             "{}-{}-{}-{}-{}",
@@ -389,8 +390,9 @@ pub struct TyAndLayout<T> {
 
 #[derive(Debug)]
 pub struct Target {
-    pub data_layout: TargetDataLayout,
     pub codegen_backend: CodegenBackend,
+
+    pub data_layout: TargetDataLayout,
 
     /// If unspecified, the target triple will be not setted
     /// in the LLVM module.

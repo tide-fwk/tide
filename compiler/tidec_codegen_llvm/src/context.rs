@@ -3,10 +3,11 @@ use std::ops::Deref;
 use inkwell::context::Context;
 use inkwell::data_layout::DataLayout;
 use inkwell::module::Module;
-use inkwell::targets::TargetTriple;
+use inkwell::targets::{TargetData, TargetTriple};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
 use inkwell::values::FunctionValue;
 use inkwell::{basic_block::BasicBlock, builder::Builder};
+use tracing::instrument;
 
 use crate::lir::types::BasicTypesUtils;
 use crate::CodegenMethods;
@@ -51,6 +52,7 @@ impl<'ll> CodegenCtx<'ll> {
 }
 
 impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
+    #[instrument(skip(lir_ty_ctx, ll_context, ll_module))]
     fn new(
         lir_ty_ctx: LirTyCtx,
         ll_context: &'ll Context,
@@ -61,7 +63,8 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
         let target_triple_string = target.target_triple_string();
 
         ll_module.set_triple(&TargetTriple::create(&target_triple_string));
-        // ll_module.set_data_layout(&DataLayout::create(&data_layout_string));
+        // TODO: TargetData contains methods to know the size, align, etc... for each LLVM type
+        ll_module.set_data_layout(&TargetData::create(&data_layout_string).get_data_layout());
 
         CodegenCtx {
             ll_context,

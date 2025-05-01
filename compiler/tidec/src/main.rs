@@ -53,20 +53,23 @@ fn main() {
     let deref_0 = codegen.builder.build_load(i32_type, _0, "_0").unwrap();
     codegen.builder.build_return(Some(&deref_0)).unwrap();
 
-    // BEGIN TEST ===================
-    let int_value = LirTy::I8.into_basic_type(codegen.ctx).size_of().unwrap();
-    let align = int_value.get_type().get_alignment();
-    println!("Size of i8: {}", int_value);
-    println!("Alignment of i8: {}", align);
-
-    // END   TEST ===================
-
     codegen
         .ctx
         .ll_module
         .print_to_file(Path::new("main.ll"))
         .unwrap();
     // module.print_to_stderr();
+
+
+    // =========================
+    // ========= TESTS =========
+    // =========================
+
+    let int_value = LirTy::I8.into_basic_type(codegen.ctx).size_of().unwrap();
+    let align = int_value.get_type().get_alignment();
+    println!("Size of i8: {}", int_value);
+    println!("Alignment of i8: {}", align);
+
 }
 
 /// Initialize the logger for the tidec project.

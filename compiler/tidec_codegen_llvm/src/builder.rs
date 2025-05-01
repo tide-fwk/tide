@@ -6,6 +6,7 @@ use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionTy
 use inkwell::values::{FunctionValue, IntValue};
 use inkwell::{basic_block::BasicBlock, builder::Builder};
 use tidec_abi::TyAndLayout;
+use tracing::instrument;
 
 use crate::context::CodegenCtx;
 use crate::lir::types::BasicTypesUtils;
@@ -13,6 +14,10 @@ use crate::BuilderMethods;
 use tidec_lir::lir::{LirBody, LirUnit};
 use tidec_lir::syntax::{LirTy, Local, LocalData, RETURN_PLACE};
 
+/// A builder for generating LLVM IR code.
+///
+/// This struct wraps the `inkwell::builder::Builder` and provides
+/// additional methods for code generation.
 pub struct CodegenBuilder<'a, 'll> {
     pub builder: Builder<'ll>,
     pub ctx: &'a CodegenCtx<'ll>,
@@ -27,6 +32,7 @@ impl<'ll> Deref for CodegenBuilder<'_, 'll> {
 }
 
 impl<'a, 'll> CodegenBuilder<'a, 'll> {
+    #[instrument(skip(ctx))]
     pub fn with_ctx(ctx: &'a CodegenCtx<'ll>) -> Self {
         let builder = ctx.ll_context.create_builder();
         CodegenBuilder { builder, ctx }
