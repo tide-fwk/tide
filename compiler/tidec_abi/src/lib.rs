@@ -1,3 +1,5 @@
+use tracing::{info, instrument};
+
 #[derive(Debug)]
 pub enum CodegenBackend {
     /// The LLVM backend.
@@ -58,10 +60,14 @@ impl Align {
     }
 
     #[inline]
+    /// Creates an `Align` from a byte count.
     pub const fn from_bytes(align: u64) -> Result<Align, AlignError> {
-        // Treat an alignment of 0 bytes like 1-byte alignment.
+        // To prevent overflow.
+        // For example, when `align` is 0, `align.trailing_zeros()` is 64.
+        // This means that `1 << tz` results in a panic with "attempt to shift left with overflow"
+        // because `1` followed by 64 zeros is too large for a u64.
         if align == 0 {
-            return Ok(Align(1));
+            return Ok(Align(0));
         }
 
         #[cold]
@@ -102,10 +108,12 @@ pub struct AbiAndPrefAlign {
 }
 
 impl AbiAndPrefAlign {
+    /// Creates a new `AbiAndPrefAlign` with the specified ABI and preferred
+    /// alignment in bytes.
     pub fn new(abi: u64, pref: u64) -> Self {
         Self {
-            abi: Align::from_bits(abi).unwrap(),
-            pref: Align::from_bits(pref).unwrap(),
+            abi: Align::from_bytes(abi).unwrap(),
+            pref: Align::from_bytes(pref).unwrap(),
         }
     }
 }
@@ -176,8 +184,11 @@ impl Default for TargetDataLayout {
 }
 
 impl TargetDataLayout {
+    #[instrument]
     pub fn new() -> Self {
-        TargetDataLayout::default()
+        let target_data_layout = TargetDataLayout::default();
+        info!("TargetDataLayout created: {:?}", target_data_layout);
+        target_data_layout
     }
 
     /// For example, for x86_64-unknown-linux-gnu, the data layout string could be:
@@ -359,6 +370,7 @@ pub struct TargetTriple {
 }
 
 impl TargetTriple {
+    #[tracing::instrument]
     pub fn new(arch: &str, vendor: &str, os: &str, env: &str, abi: &str) -> Self {
         TargetTriple {
             arch: arch.to_string(),

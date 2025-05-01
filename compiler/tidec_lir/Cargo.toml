@@ -8,5 +8,4 @@ edition = "2021"
 tidec_abi = { path = "../tidec_abi" }
 tidec_utils = { path = "../tidec_utils" }
 tracing = "0.1.41"
-tracing-attributes = "0.1.28"
 # tidy-alphabetical-end

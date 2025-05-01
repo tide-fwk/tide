@@ -1,19 +1,16 @@
 use std::ops::Deref;
 
 use inkwell::context::Context;
-use inkwell::data_layout::DataLayout;
 use inkwell::module::Module;
 use inkwell::targets::{TargetData, TargetTriple};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
 use inkwell::values::FunctionValue;
-use inkwell::{basic_block::BasicBlock, builder::Builder};
 use tracing::instrument;
 
 use crate::lir::types::BasicTypesUtils;
 use crate::CodegenMethods;
-use tidec_lir::lir::{LirBody, LirTyCtx, LirUnit};
-use tidec_lir::syntax::{LirTy, Local, LocalData, RETURN_PLACE};
-use tidec_utils::index_vec::IdxVec;
+use tidec_lir::lir::{LirBody, LirTyCtx};
+use tidec_lir::syntax::RETURN_PLACE;
 
 pub struct CodegenCtx<'ll> {
     // FIXME: Make this private
@@ -63,7 +60,8 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
         let target_triple_string = target.target_triple_string();
 
         ll_module.set_triple(&TargetTriple::create(&target_triple_string));
-        // TODO: TargetData contains methods to know the size, align, etc... for each LLVM type
+        // TODO: As TargetData contains methods to know the size, align, etc... for each LLVM type
+        // we could consider to store it in a context
         ll_module.set_data_layout(&TargetData::create(&data_layout_string).get_data_layout());
 
         CodegenCtx {
