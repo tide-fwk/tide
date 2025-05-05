@@ -8,7 +8,7 @@ use tidec_abi::CodegenBackend;
 use tidec_codegen_llvm::builder::CodegenBuilder;
 use tidec_codegen_llvm::context::CodegenCtx;
 use tidec_codegen_llvm::lir::types::BasicTypesUtils;
-use tidec_codegen_llvm::traits::CodegenMethods;
+use tidec_codegen_llvm::ssa::CodegenMethods;
 use tidec_lir::lir::LirTyCtx;
 use tidec_lir::syntax::LirTy;
 use tidec_utils::v_debug;

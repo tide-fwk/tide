@@ -1,7 +1,7 @@
 pub mod builder;
 pub mod context;
 pub mod lir;
-pub mod ssa_traits;
+pub mod ssa;
 
 use builder::CodegenBuilder;
 use context::CodegenCtx;
@@ -9,7 +9,7 @@ use inkwell::context::Context;
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::FunctionValue;
 
-use ssa_traits::{BuilderMethods, CodegenMethods};
+use ssa::{BuilderMethods, CodegenMethods};
 use tidec_lir::lir::{LirBody, LirTyCtx, LirUnit};
 use tidec_lir::syntax::{Local, LocalData};
 use tidec_utils::index_vec::IdxVec;
@@ -22,7 +22,7 @@ struct FnCtx<'a, 'll, B: BuilderMethods<'a, 'll>> {
 
     /// The LLVM function value.
     /// This is the function that will be generated.
-    llfn_value: FunctionValue<'ll>,
+    llfn_value: B::FunctionValue,
 
     /// The LLVM codegen context.
     ctx: &'a B::CodegenCtx,
@@ -52,7 +52,7 @@ fn compile_lir_body<'a, 'll, B: BuilderMethods<'a, 'll>>(
         locals: IdxVec::new(),
     };
 
-    let allocate_locals = |fn_value: FunctionValue<'ll>,
+    let allocate_locals = |fn_value: B::FunctionValue,
                            locals: &IdxVec<Local, LocalData>|
      -> IdxVec<Local, BasicTypeEnum<'ll>> {
         let mut local_allocas = IdxVec::new();
