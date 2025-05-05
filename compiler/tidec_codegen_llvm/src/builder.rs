@@ -10,7 +10,7 @@ use tracing::instrument;
 
 use crate::context::CodegenCtx;
 use crate::lir::types::BasicTypesUtils;
-use crate::ssa_traits::CodegenBackendTypes;
+use crate::ssa::CodegenBackendTypes;
 use crate::BuilderMethods;
 use tidec_lir::lir::{LirBody, LirUnit};
 use tidec_lir::syntax::{LirTy, Local, LocalData, RETURN_PLACE};
@@ -35,7 +35,8 @@ impl<'ll> Deref for CodegenBuilder<'_, 'll> {
 impl<'ll> CodegenBackendTypes<'ll> for CodegenBuilder<'_, 'll> {
     type BasicBlock = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::BasicBlock;
     type Value = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::Value;
-    type Function = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::Function;
+    type FunctionType = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::FunctionType;
+    type FunctionValue = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::FunctionValue;
     type Type = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::Type;
     type MetadataType = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::MetadataType;
     type MetadataValue = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::MetadataValue;
@@ -61,7 +62,7 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
 
     /// Create a new CodeGenBuilder from a CodeGenCtx and a BasicBlock.
     /// The builder is positioned at the end of the BasicBlock.
-    fn build(ctx: &'a Self::CodegenCtx, llbb: BasicBlock) -> Self {
+    fn build(ctx: &'a CodegenCtx<'ll>, llbb: BasicBlock) -> Self {
         let builder = CodegenBuilder::with_ctx(ctx);
         builder.builder.position_at_end(llbb);
         builder
@@ -69,7 +70,7 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
 
     /// Append a new basic block to the function.
     fn append_basic_block(
-        ctx: &Self::CodegenCtx,
+        ctx: &'a CodegenCtx<'ll>,
         fn_value: FunctionValue<'ll>,
         name: &str,
     ) -> BasicBlock<'ll> {
