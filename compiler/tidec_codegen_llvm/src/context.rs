@@ -1,13 +1,15 @@
 use std::ops::Deref;
 
+use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{TargetData, TargetTriple};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
-use inkwell::values::FunctionValue;
+use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
 use tracing::instrument;
 
 use crate::lir::types::BasicTypesUtils;
+use crate::ssa_traits::CodegenBackendTypes;
 use crate::CodegenMethods;
 use tidec_lir::lir::{LirBody, LirTyCtx};
 use tidec_lir::syntax::RETURN_PLACE;
@@ -27,6 +29,15 @@ impl<'ll> Deref for CodegenCtx<'ll> {
     fn deref(&self) -> &Self::Target {
         self.ll_context
     }
+}
+
+impl<'ll> CodegenBackendTypes<'ll> for CodegenCtx<'ll> {
+    type BasicBlock = BasicBlock<'ll>;
+    type Function = FunctionType<'ll>;
+    type Type = BasicTypeEnum<'ll>;
+    type Value = BasicValueEnum<'ll>;
+    type MetadataType = BasicMetadataTypeEnum<'ll>;
+    type MetadataValue = BasicMetadataValueEnum<'ll>;
 }
 
 impl<'ll> CodegenCtx<'ll> {

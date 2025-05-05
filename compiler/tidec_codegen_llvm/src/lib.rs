@@ -1,22 +1,19 @@
 pub mod builder;
 pub mod context;
 pub mod lir;
-pub mod traits;
+pub mod ssa_traits;
 
 use builder::CodegenBuilder;
 use context::CodegenCtx;
-use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
-use inkwell::module::Module;
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::FunctionValue;
 
-use tidec_abi::TyAndLayout;
+use ssa_traits::{BuilderMethods, CodegenMethods};
 use tidec_lir::lir::{LirBody, LirTyCtx, LirUnit};
-use tidec_lir::syntax::{LirTy, Local, LocalData};
+use tidec_lir::syntax::{Local, LocalData};
 use tidec_utils::index_vec::IdxVec;
 use tracing::instrument;
-use traits::{BuilderMethods, CodegenMethods};
 
 struct FnCtx<'a, 'll, B: BuilderMethods<'a, 'll>> {
     // pub locals: IdxVec<Local, LocalRef>,

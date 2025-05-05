@@ -10,6 +10,7 @@ use tracing::instrument;
 
 use crate::context::CodegenCtx;
 use crate::lir::types::BasicTypesUtils;
+use crate::ssa_traits::CodegenBackendTypes;
 use crate::BuilderMethods;
 use tidec_lir::lir::{LirBody, LirUnit};
 use tidec_lir::syntax::{LirTy, Local, LocalData, RETURN_PLACE};
@@ -29,6 +30,15 @@ impl<'ll> Deref for CodegenBuilder<'_, 'll> {
     fn deref(&self) -> &Self::Target {
         &self.ctx
     }
+}
+
+impl<'ll> CodegenBackendTypes<'ll> for CodegenBuilder<'_, 'll> {
+    type BasicBlock = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::BasicBlock;
+    type Value = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::Value;
+    type Function = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::Function;
+    type Type = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::Type;
+    type MetadataType = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::MetadataType;
+    type MetadataValue = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::MetadataValue;
 }
 
 impl<'a, 'll> CodegenBuilder<'a, 'll> {
