@@ -7,7 +7,7 @@ use builder::CodegenBuilder;
 use context::CodegenCtx;
 use inkwell::context::Context;
 use inkwell::types::BasicTypeEnum;
-use inkwell::values::FunctionValue;
+use inkwell::values::{BasicValueEnum, FunctionValue};
 
 use ssa::{BuilderMethods, CodegenMethods};
 use tidec_lir::lir::{LirBody, LirTyCtx, LirUnit};
@@ -28,7 +28,7 @@ struct FnCtx<'a, 'll, B: BuilderMethods<'a, 'll>> {
     ctx: &'a B::CodegenCtx,
 
     // The allocated locals and temporaries for the function.
-    locals: IdxVec<Local, BasicTypeEnum<'ll>>,
+    locals: IdxVec<Local, BasicValueEnum<'ll>>,
 }
 
 impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
@@ -54,7 +54,7 @@ fn compile_lir_body<'a, 'll, B: BuilderMethods<'a, 'll>>(
 
     let allocate_locals = |fn_value: B::FunctionValue,
                            locals: &IdxVec<Local, LocalData>|
-     -> IdxVec<Local, BasicTypeEnum<'ll>> {
+     -> IdxVec<Local, BasicValueEnum<'ll>> {
         let mut local_allocas = IdxVec::new();
 
         for (local, local_data) in locals.iter_enumerated() {
