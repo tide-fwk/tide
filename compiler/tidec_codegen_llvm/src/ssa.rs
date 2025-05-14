@@ -12,13 +12,11 @@ pub trait CodegenBackendTypes<'be> {
     /// A `Type` is a type in the codegen backend.
     type Type: Copy + PartialEq + std::fmt::Debug;
     /// A `Value` is an instance of a type in the codegen backend.
-    /// E.g., an instruction, constant, or argument.
+    /// Note that this should include `FunctionValue`.
+    /// E.g., an instruction, constant, argument, or a function value.
     type Value: Copy + PartialEq + std::fmt::Debug;
     /// A `Function` is a function type in the codegen backend.
     type FunctionType: Copy + PartialEq + std::fmt::Debug;
-    /// A `FunctionValue` is a function value in the codegen backend.
-    /// E.g., a function pointer or a function definition.
-    type FunctionValue: Copy + PartialEq + std::fmt::Debug;
     /// A `MetadataType` is a metadata type in the codegen backend.
     type MetadataType: Copy + PartialEq + std::fmt::Debug;
     /// A `MetadataValue` is a metadata value in the codegen backend.
@@ -42,8 +40,8 @@ pub trait CodegenBackend<'be>: Sized + CodegenBackendTypes<'be> {
 /// The codegen backend methods.
 pub trait CodegenMethods<'be>: Sized + CodegenBackendTypes<'be> + CodegenBackend<'be> {
     fn new(lir_ty_ctx: LirTyCtx, context: &'be Self::Context, module: Self::Module) -> Self;
-    fn get_fn(&self, name: &str) -> Option<Self::FunctionValue>;
-    fn new_fn(&self, lir_body: &LirBody) -> Self::FunctionValue;
+    fn get_fn(&self, name: &str) -> Option<Self::Value>;
+    fn new_fn(&self, lir_body: &LirBody) -> Self::Value;
 }
 
 // =================
@@ -59,7 +57,6 @@ pub trait BuilderMethods<'a, 'be>: Sized + CodegenBackendTypes<'be> {
         Type = Self::Type,
         Value = Self::Value,
         FunctionType = Self::FunctionType,
-        FunctionValue = Self::FunctionValue,
         MetadataType = Self::MetadataType,
         MetadataValue = Self::MetadataValue,
     >;
@@ -68,9 +65,40 @@ pub trait BuilderMethods<'a, 'be>: Sized + CodegenBackendTypes<'be> {
 
     fn append_basic_block(
         ctx: &'a Self::CodegenCtx,
-        fn_value: Self::FunctionValue,
+        fn_value: Self::Value,
         name: &str,
     ) -> Self::BasicBlock;
 
     fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy>;
+}
+
+
+
+
+
+
+
+
+// ==================================
+struct NonTerminal {
+    name: String,
+}
+
+struct Terminal {
+    name: String,
+}
+
+enum NonTerminalOrTerminal {
+    NonTerminal(NonTerminal),
+    Terminal(Terminal),
+}
+
+// Expr -> Expr "+" Lit
+struct Production {
+    sx: NonTerminal,
+    dx: Vec<NonTerminalOrTerminal>,
+}
+
+trait NlgMod {
+    fn get_productions(&self) -> Vec<Production>;
 }
