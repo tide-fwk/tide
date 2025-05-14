@@ -29,13 +29,13 @@ impl<'ll> Deref for CodegenBuilder<'_, 'll> {
     }
 }
 
-impl<'ll> CodegenBackendTypes<'ll> for CodegenBuilder<'_, 'll> {
-    type BasicBlock = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::BasicBlock;
-    type Value = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::Value;
-    type FunctionType = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::FunctionType;
-    type Type = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::Type;
-    type MetadataType = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::MetadataType;
-    type MetadataValue = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::MetadataValue;
+impl<'ll> CodegenBackendTypes for CodegenBuilder<'_, 'll> {
+    type BasicBlock = <CodegenCtx<'ll> as CodegenBackendTypes>::BasicBlock;
+    type Value = <CodegenCtx<'ll> as CodegenBackendTypes>::Value;
+    type FunctionType = <CodegenCtx<'ll> as CodegenBackendTypes>::FunctionType;
+    type Type = <CodegenCtx<'ll> as CodegenBackendTypes>::Type;
+    type MetadataType = <CodegenCtx<'ll> as CodegenBackendTypes>::MetadataType;
+    type MetadataValue = <CodegenCtx<'ll> as CodegenBackendTypes>::MetadataValue;
 }
 
 impl<'a, 'll> CodegenBuilder<'a, 'll> {
