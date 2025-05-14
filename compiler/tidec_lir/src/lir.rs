@@ -98,12 +98,32 @@ pub enum Visibility {
     Protected,
 }
 
+/// A user-callable item in LIR.
+pub enum LirItemKind {
+    /// A function.
+    Function,
+    /// A closure.
+    Closure,
+    /// A coroutine.
+    Coroutine,
+}
+
+/// The kind of a LIR body.
+// TODO(bruzzone): add other kinds of body; e.g. virtual function, fn pointer, etc.
+// See: rustc_middle::ty::InstanceKind
+pub enum LirBodyKind {
+    Item(LirItemKind),
+}
+
+/// The metadata of a LIR body (function).
 pub struct LirBodyMetadata {
     /// The definition ID of the function.
     pub id: DefId,
     /// The name of the function.
+    /// It aims to be the `symbol name` for the backend purpose.
     pub name: String,
-
+    /// The kind of the body.
+    pub kind: LirBodyKind,
     /// If the function should be inlined.
     pub inlined: bool,
     /// The linkage of the function.
@@ -113,8 +133,10 @@ pub struct LirBodyMetadata {
 }
 
 /// The body of a function in LIR (Low-level Intermediate Representation).
+/// A body could be
 pub struct LirBody {
     /// The metadata of the function.
+    // TODO(bruzzone): consider to detach the metadata from the body
     pub metadata: LirBodyMetadata,
 
     /// The locals for return value and arguments of the function.
@@ -144,6 +166,8 @@ pub struct LirUnit {
 #[derive(Debug)]
 pub struct LirTyCtx {
     target: Target,
+    // TODO(bruzzone): here we should have, other then an arena, also a HashMap from DefId
+    // to the body of the function.
 }
 
 impl LirTyCtx {

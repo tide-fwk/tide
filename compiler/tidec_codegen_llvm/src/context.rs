@@ -9,7 +9,7 @@ use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum};
 use tracing::instrument;
 
 use crate::lir::types::BasicTypesUtils;
-use crate::ssa::{CodegenBackend, CodegenBackendTypes};
+use crate::ssa::{CodegenBackend, CodegenBackendTypes, PreDefineMethods};
 use crate::CodegenMethods;
 use tidec_lir::lir::{LirBody, LirTyCtx};
 use tidec_lir::syntax::RETURN_PLACE;
@@ -31,7 +31,7 @@ impl<'ll> Deref for CodegenCtx<'ll> {
     }
 }
 
-impl<'ll> CodegenBackendTypes<'ll> for CodegenCtx<'ll> {
+impl<'ll> CodegenBackendTypes for CodegenCtx<'ll> {
     type BasicBlock = BasicBlock<'ll>;
     type FunctionType = FunctionType<'ll>;
     type Type = BasicTypeEnum<'ll>;
@@ -40,9 +40,15 @@ impl<'ll> CodegenBackendTypes<'ll> for CodegenCtx<'ll> {
     type MetadataValue = BasicMetadataValueEnum<'ll>;
 }
 
-impl<'ll> CodegenBackend<'ll> for CodegenCtx<'ll> {
+impl<'ll> CodegenBackend for CodegenCtx<'ll> {
     type Context = Context;
     type Module = Module<'ll>;
+}
+
+impl PreDefineMethods for CodegenCtx<'_> {
+    fn pre_define(&self, _lir_body: &LirBody) {
+        todo!()
+    }
 }
 
 impl<'ll> CodegenCtx<'ll> {
