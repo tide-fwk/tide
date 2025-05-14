@@ -6,8 +6,6 @@ pub mod ssa;
 use builder::CodegenBuilder;
 use context::CodegenCtx;
 use inkwell::context::Context;
-use inkwell::types::BasicTypeEnum;
-use inkwell::values::{BasicValueEnum, FunctionValue};
 
 use ssa::{BuilderMethods, CodegenMethods};
 use tidec_lir::lir::{LirBody, LirTyCtx, LirUnit};
@@ -22,13 +20,13 @@ struct FnCtx<'a, 'll, B: BuilderMethods<'a, 'll>> {
 
     /// The LLVM function value.
     /// This is the function that will be generated.
-    llfn_value: B::FunctionValue,
+    llfn_value: B::Value,
 
     /// The LLVM codegen context.
     ctx: &'a B::CodegenCtx,
 
     // The allocated locals and temporaries for the function.
-    locals: IdxVec<Local, BasicValueEnum<'ll>>,
+    locals: IdxVec<Local, B::Value>,
 }
 
 impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
@@ -52,19 +50,18 @@ fn compile_lir_body<'a, 'll, B: BuilderMethods<'a, 'll>>(
         locals: IdxVec::new(),
     };
 
-    let allocate_locals = |fn_value: B::FunctionValue,
-                           locals: &IdxVec<Local, LocalData>|
-     -> IdxVec<Local, BasicValueEnum<'ll>> {
-        let mut local_allocas = IdxVec::new();
+    let allocate_locals =
+        |fn_value: B::Value, locals: &IdxVec<Local, LocalData>| -> IdxVec<Local, B::Value> {
+            let mut local_allocas = IdxVec::new();
 
-        for (local, local_data) in locals.iter_enumerated() {
-            let layout = start_builder.layout_of(local_data.ty);
-            // let alloca =
-            // local_allocas[local] = alloca;
-        }
+            for (local, local_data) in locals.iter_enumerated() {
+                let layout = start_builder.layout_of(local_data.ty);
+                // let alloca =
+                // local_allocas[local] = alloca;
+            }
 
-        local_allocas
-    };
+            local_allocas
+        };
 
     // Allocate the return value and arguments
     let mut locals = allocate_locals(fn_ctx.llfn_value, &fn_ctx.lir_body.ret_and_args);

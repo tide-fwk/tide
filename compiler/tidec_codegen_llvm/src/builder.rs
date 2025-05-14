@@ -1,19 +1,16 @@
 use std::ops::Deref;
 
-use inkwell::context::Context;
-use inkwell::module::Module;
-use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType};
-use inkwell::values::{FunctionValue, IntValue};
+use inkwell::types::BasicType;
+use inkwell::values::{AnyValueEnum, FunctionValue};
 use inkwell::{basic_block::BasicBlock, builder::Builder};
 use tidec_abi::TyAndLayout;
+use tidec_lir::syntax::LirTy;
 use tracing::instrument;
 
 use crate::context::CodegenCtx;
 use crate::lir::types::BasicTypesUtils;
 use crate::ssa::CodegenBackendTypes;
 use crate::BuilderMethods;
-use tidec_lir::lir::{LirBody, LirUnit};
-use tidec_lir::syntax::{LirTy, Local, LocalData, RETURN_PLACE};
 
 /// A builder for generating LLVM IR code.
 ///
@@ -36,7 +33,6 @@ impl<'ll> CodegenBackendTypes<'ll> for CodegenBuilder<'_, 'll> {
     type BasicBlock = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::BasicBlock;
     type Value = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::Value;
     type FunctionType = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::FunctionType;
-    type FunctionValue = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::FunctionValue;
     type Type = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::Type;
     type MetadataType = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::MetadataType;
     type MetadataValue = <CodegenCtx<'ll> as CodegenBackendTypes<'ll>>::MetadataValue;
@@ -69,11 +65,18 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
     }
 
     /// Append a new basic block to the function.
+    ///
+    /// # Panic
+    ///
+    /// Panics if the function is not a valid function value.
     fn append_basic_block(
         ctx: &'a CodegenCtx<'ll>,
-        fn_value: FunctionValue<'ll>,
+        fn_value: AnyValueEnum<'ll>,
         name: &str,
     ) -> BasicBlock<'ll> {
+        let fn_value = fn_value.into_function_value(); // TODO: use some thing
+                                                       // try_function_and_collect
+                                                       // the error
         ctx.ll_context.append_basic_block(fn_value, name)
     }
 

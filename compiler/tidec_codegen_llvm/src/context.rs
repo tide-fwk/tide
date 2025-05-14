@@ -5,7 +5,7 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{TargetData, TargetTriple};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
-use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum, FunctionValue};
+use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum};
 use tracing::instrument;
 
 use crate::lir::types::BasicTypesUtils;
@@ -34,9 +34,8 @@ impl<'ll> Deref for CodegenCtx<'ll> {
 impl<'ll> CodegenBackendTypes<'ll> for CodegenCtx<'ll> {
     type BasicBlock = BasicBlock<'ll>;
     type FunctionType = FunctionType<'ll>;
-    type FunctionValue = FunctionValue<'ll>;
     type Type = BasicTypeEnum<'ll>;
-    type Value = BasicValueEnum<'ll>;
+    type Value = AnyValueEnum<'ll>;
     type MetadataType = BasicMetadataTypeEnum<'ll>;
     type MetadataValue = BasicMetadataValueEnum<'ll>;
 }
@@ -88,11 +87,17 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
         }
     }
 
-    fn get_fn(&self, name: &str) -> Option<FunctionValue<'ll>> {
-        self.ll_module.get_function(name)
+    /// Get the function value from the module.
+    ///
+    /// TODO: dire che ci si aspetta che ritorna una funzione
+    fn get_fn(&self, name: &str) -> Option<AnyValueEnum<'ll>> {
+        Some(AnyValueEnum::FunctionValue(
+            self.ll_module.get_function(name)?,
+        ))
     }
 
-    fn new_fn(&self, lir_body: &LirBody) -> FunctionValue<'ll> {
+    /// TODO: dire che ci si aspetta che ritorna una funzione
+    fn new_fn(&self, lir_body: &LirBody) -> AnyValueEnum<'ll> {
         let name = lir_body.metadata.name.as_str();
 
         if let Some(f) = self.get_fn(name) {
@@ -110,6 +115,6 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
         let fn_ty = self.declare_fn(ret_ty, formal_param_tys.as_slice());
         let fn_val = self.ll_module.add_function(name, fn_ty, None);
 
-        fn_val
+        AnyValueEnum::FunctionValue(fn_val)
     }
 }
