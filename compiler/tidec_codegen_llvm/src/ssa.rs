@@ -71,34 +71,3 @@ pub trait BuilderMethods<'a, 'be>: Sized + CodegenBackendTypes<'be> {
 
     fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy>;
 }
-
-
-
-
-
-
-
-
-// ==================================
-struct NonTerminal {
-    name: String,
-}
-
-struct Terminal {
-    name: String,
-}
-
-enum NonTerminalOrTerminal {
-    NonTerminal(NonTerminal),
-    Terminal(Terminal),
-}
-
-// Expr -> Expr "+" Lit
-struct Production {
-    sx: NonTerminal,
-    dx: Vec<NonTerminalOrTerminal>,
-}
-
-trait NlgMod {
-    fn get_productions(&self) -> Vec<Production>;
-}
