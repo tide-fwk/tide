@@ -2,13 +2,16 @@ use std::ops::Deref;
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
-use inkwell::module::Module;
+use inkwell::module::{Linkage, Module};
 use inkwell::targets::{TargetData, TargetTriple};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
 use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum};
-use tracing::instrument;
+use tracing::{debug, instrument};
 
-use crate::lir::types::BasicTypesUtils;
+use crate::lir::lir_body_metadata::{
+    CallConvUtils, LinkageUtils, UnnamedAddressUtils, VisibilityUtils,
+};
+use crate::lir::lir_ty::BasicTypesUtils;
 use crate::ssa::{CodegenBackend, CodegenBackendTypes, PreDefineMethods};
 use crate::CodegenMethods;
 use tidec_lir::lir::{LirBody, LirTyCtx};
@@ -46,7 +49,7 @@ impl<'ll> CodegenBackend for CodegenCtx<'ll> {
 }
 
 impl PreDefineMethods for CodegenCtx<'_> {
-    fn pre_define(&self, _lir_body: &LirBody) {
+    fn predefine_fn(&self, _lir_body: &LirBody) {
         todo!()
     }
 }
@@ -103,10 +106,11 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
     }
 
     /// TODO: dire che ci si aspetta che ritorna una funzione
-    fn new_fn(&self, lir_body: &LirBody) -> AnyValueEnum<'ll> {
+    fn get_or_declare_fn(&self, lir_body: &LirBody) -> AnyValueEnum<'ll> {
         let name = lir_body.metadata.name.as_str();
 
         if let Some(f) = self.get_fn(name) {
+            debug!("get_or_declare_fn(name: {}) found", name);
             return f;
         }
 
@@ -117,9 +121,22 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
             .iter()
             .map(|local_data| local_data.ty.into_basic_type_metadata(&self))
             .collect::<Vec<_>>();
-
         let fn_ty = self.declare_fn(ret_ty, formal_param_tys.as_slice());
-        let fn_val = self.ll_module.add_function(name, fn_ty, None);
+        let linkage = lir_body.metadata.linkage.into_linkage();
+        let calling_convention = lir_body.metadata.call_conv.into_call_conv();
+        let fn_val = self.ll_module.add_function(name, fn_ty, Some(linkage));
+        fn_val.set_call_conventions(calling_convention);
+
+        let fn_global_value = fn_val.as_global_value();
+        let visibility = lir_body.metadata.visibility.into_visibility();
+        fn_global_value.set_visibility(visibility);
+        let unnamed_addr = lir_body.metadata.unnamed_address.into_unnamed_address();
+        fn_global_value.set_unnamed_address(unnamed_addr);
+
+        debug!(
+            "get_or_declare_fn((name: {}, ret_ty: {:?}, param_tys: {:?}, linkage: {:?}, visibility: {:?}, calling_convention: {:?}, unnamed_addr: {:?})) delared",
+            name, ret_ty, formal_param_tys, linkage, visibility, calling_convention, unnamed_addr
+        );
 
         AnyValueEnum::FunctionValue(fn_val)
     }

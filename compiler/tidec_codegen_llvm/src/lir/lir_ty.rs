@@ -2,6 +2,10 @@ use crate::CodegenCtx;
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
 use tidec_lir::syntax::LirTy;
 
+/// A trait to convert LirTy into LLVM BasicTypeEnum and BasicMetadataTypeEnum.
+///
+/// We need to do this due to the orphan rule in Rust. This could cause the
+/// stop of the compilation process of an external crate.
 pub trait BasicTypesUtils<'ll> {
     fn into_basic_type_metadata(self, ctx: &CodegenCtx<'ll>) -> BasicMetadataTypeEnum<'ll>;
     fn into_basic_type(self, ctx: &CodegenCtx<'ll>) -> BasicTypeEnum<'ll>;
