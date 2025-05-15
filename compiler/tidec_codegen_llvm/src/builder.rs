@@ -8,7 +8,7 @@ use tidec_lir::syntax::LirTy;
 use tracing::instrument;
 
 use crate::context::CodegenCtx;
-use crate::lir::types::BasicTypesUtils;
+use crate::lir::lir_ty::BasicTypesUtils;
 use crate::ssa::CodegenBackendTypes;
 use crate::BuilderMethods;
 

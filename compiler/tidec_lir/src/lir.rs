@@ -108,6 +108,105 @@ pub enum LirItemKind {
     Coroutine,
 }
 
+/// Specifies the significance of a global value's address, used for enabling
+/// optimizations related to constant merging and deduplication.
+///
+/// The `UnnamedAddress` enum is commonly used in compiler internals or
+/// intermediate representations (e.g., LLVM IR) to indicate how the address of
+/// a global variable or constant can be treated by the optimizer.
+///
+/// This information allows the backend to perform optimizations like merging
+/// identical constants or emitting address-independent data.
+pub enum UnnamedAddress {
+    /// The address of the global value is significant and must not be merged
+    /// with others. This is the most conservative option.
+    None,
+    /// The address of the global value is significant only within the current
+    /// translation unit. The optimizer may merge local constants with the same
+    /// content if they are not exposed externally.
+    Local,
+    /// The address is completely insignificant. This allows the optimizer to
+    /// merge identical constants across translation units or even eliminate
+    /// duplicates entirely.
+    Global,
+}
+
+#[derive(Clone, Copy)]
+/// The calling convention of a function.
+///
+/// The calling convention is a low-level detail that specifies how
+/// arguments are passed to a function and how the return value is obtained.
+/// It is important for the backend to know the calling convention in order
+/// to generate the correct code for function calls and returns.
+///
+/// For more details, see the LLVM documentation on calling conventions:
+/// https://llvm.org/docs/LangRef.html#call-conventions
+pub enum CallConv {
+    C = 0,
+    Rust = 1, // Added by Tidec
+    Fast = 8,
+    Cold = 9,
+    GHC = 10,
+    HiPE = 11,
+    AnyReg = 13,
+    PreserveMost = 14,
+    PreserveAll = 15,
+    Swift = 16,
+    CxxFastTls = 17,
+    Tail = 18,
+    CfguardCheck = 19,
+    SwiftTail = 20,
+    PreserveNone = 21,
+    FirstTargetCC = 63, // TODO: In the LLVM documentation it was 64. Overlapping with the X86StdCall
+    X86StdCall = 64,
+    X86FastCall = 65,
+    ArmApcs = 66,
+    ArmAapcs = 67,
+    ArmAapcsVfp = 68,
+    Msp430Intr = 69,
+    X86ThisCall = 70,
+    PtxKernel = 71,
+    PtxDevice = 72,
+    SpirFunc = 75,
+    SpirKernel = 76,
+    IntelOclBi = 77,
+    X86_64SysV = 78,
+    Win64 = 79,
+    X86VectorCall = 80,
+    DummyHhvm = 81,
+    DummyHhvmC = 82,
+    X86Intr = 83,
+    AvrIntr = 84,
+    AvrSignal = 85,
+    AvrBuiltin = 86,
+    AmdgpuVs = 87,
+    AmdgpuGs = 88,
+    AmdgpuPs = 89,
+    AmdgpuCs = 90,
+    AmdgpuKernel = 91,
+    X86RegCall = 92,
+    AmdgpuHs = 93,
+    Msp430Builtin = 94,
+    AmdgpuLs = 95,
+    AmdgpuEs = 96,
+    Aarch64VectorCall = 97,
+    Aarch64SveVectorCall = 98,
+    WasmEmscriptenInvoke = 99,
+    AmdgpuGfx = 100,
+    M68kIntr = 101,
+    Aarch64SmeAbiSupportRoutinesPreserveMostFromX0 = 102,
+    Aarch64SmeAbiSupportRoutinesPreserveMostFromX2 = 103,
+    AmdgpuCsChain = 104,
+    AmdgpuCsChainPreserve = 105,
+    M68kRtd = 106,
+    GRAAL = 107,
+    Arm64ecThunkX64 = 108,
+    Arm64ecThunkNative = 109,
+    RiscvVectorCall = 110,
+    Aarch64SmeAbiSupportRoutinesPreserveMostFromX1 = 111,
+    MaxID = 1023,
+}
+
 /// The kind of a LIR body.
 // TODO(bruzzone): add other kinds of body; e.g. virtual function, fn pointer, etc.
 // See: rustc_middle::ty::InstanceKind
@@ -130,6 +229,10 @@ pub struct LirBodyMetadata {
     pub linkage: Linkage,
     /// The visibility of the function.
     pub visibility: Visibility,
+    /// The unnamed address of the function.
+    pub unnamed_address: UnnamedAddress,
+    /// The calling convention of the function.
+    pub call_conv: CallConv,
 }
 
 /// The body of a function in LIR (Low-level Intermediate Representation).
