@@ -43,17 +43,16 @@ pub trait CodegenBackend: Sized + CodegenBackendTypes {
     type Context;
 }
 
-pub trait PreDefineMethods: Sized + CodegenBackendTypes {
+pub trait PreDefineCodegenMethods: Sized + CodegenBackendTypes {
     fn predefine_fn(&self, lir_body: &LirBody);
 }
 
 /// The codegen backend methods.
 pub trait CodegenMethods<'be>:
-    Sized + CodegenBackendTypes + CodegenBackend + PreDefineMethods
+    Sized + CodegenBackendTypes + CodegenBackend + PreDefineCodegenMethods
 {
     fn new(lir_ty_ctx: LirTyCtx, context: &'be Self::Context, module: Self::Module) -> Self;
-    fn get_fn(&self, name: &str) -> Option<Self::Value>;
-    fn get_or_declare_fn(&self, lir_body: &LirBody) -> Self::Value;
+    fn get_fn(&self, lir_body: &LirBody) -> Self::Value;
 }
 
 /// The builder methods for the codegen backend.
@@ -111,7 +110,7 @@ fn compile_lir_body<'a, 'll, B: BuilderMethods<'a, 'll>>(
     ctx: &'a B::CodegenCtx,
     lir_body: LirBody,
 ) {
-    let llfn_value = ctx.get_or_declare_fn(&lir_body);
+    let llfn_value = ctx.get_fn(&lir_body);
     let entry_bb = B::append_basic_block(&ctx, llfn_value, "entry");
     let start_builder = B::build(ctx, entry_bb);
 
@@ -158,6 +157,10 @@ pub fn compile_lir_unit<'a, 'll, B: BuilderMethods<'a, 'll>>(
     ctx: &'a B::CodegenCtx,
     lir_unit: LirUnit,
 ) {
+    for lir_body in &lir_unit.body {
+        ctx.predefine_fn(&lir_body);
+    }
+
     // Create the functions
     for lir_body in lir_unit.body {
         compile_lir_body::<B>(ctx, lir_body);
