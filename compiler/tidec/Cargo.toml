@@ -8,6 +8,7 @@ edition = "2021"
 inkwell = { version = "0.5.0", features = ["llvm18-0"] } # inkwell = { git = "https://github.com/stevefan1999-personal/inkwell", rev = "0732f8dcb7b2b7f8edc25895d6dbd37ba439672c", features = [ "llvm19-1" ] }
 tidec_abi = { path = "../tidec_abi" }
 tidec_codegen_llvm = { path = "../tidec_codegen_llvm" }
+tidec_codegen_ssa = { path = "../tidec_codegen_ssa" }
 tidec_lir = { path = "../tidec_lir" }
 tidec_log = { path = "../tidec_log" }
 tidec_utils = { path = "../tidec_utils" }

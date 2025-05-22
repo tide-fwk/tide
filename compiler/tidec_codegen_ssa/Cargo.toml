@@ -1,0 +1,12 @@
+[package]
+name = "tidec_codegen_ssa"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# tidy-alphabetical-start
+tidec_abi = { path = "../tidec_abi" }
+tidec_lir = { path = "../tidec_lir" }
+tracing = "0.1.41"
+# tidy-alphabetical-end
+

@@ -4,11 +4,11 @@ use std::path::Path;
 
 use inkwell::context::Context;
 use inkwell::types::BasicType;
-use tidec_abi::CodegenBackend;
+use tidec_abi::BackendKind;
 use tidec_codegen_llvm::builder::CodegenBuilder;
 use tidec_codegen_llvm::context::CodegenCtx;
 use tidec_codegen_llvm::lir::lir_ty::BasicTypesUtils;
-use tidec_codegen_llvm::ssa::CodegenMethods;
+use tidec_codegen_ssa::traits::CodegenMethods;
 use tidec_lir::lir::LirTyCtx;
 use tidec_lir::syntax::LirTy;
 use tidec_utils::v_debug;
@@ -26,7 +26,7 @@ fn main() {
     init_tidec_logger();
     v_debug!("Logging initialized");
 
-    let lir_ctx = LirTyCtx::new(CodegenBackend::Llvm);
+    let lir_ctx = LirTyCtx::new(BackendKind::Llvm);
 
     let context = Context::create();
     let module = context.create_module("main");

@@ -7,7 +7,8 @@ use builder::CodegenBuilder;
 use context::CodegenCtx;
 use inkwell::context::Context;
 
-use ssa::{compile_lir_unit, BuilderMethods, CodegenMethods};
+use ssa::compile_lir_unit;
+use tidec_codegen_ssa::traits::CodegenMethods;
 use tidec_lir::lir::{LirTyCtx, LirUnit};
 
 fn compile_codegen_unit<'ll>(lir_ty_ctx: LirTyCtx, lir_unit: LirUnit) {
