@@ -6,7 +6,7 @@ use tidec_abi::{CodegenBackend, Target, TyAndLayout};
 use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, instrument};
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Hash, Clone, Copy)]
 pub struct DefId(usize);
 
 /// Specifies the linkage of a symbol.
@@ -217,7 +217,7 @@ pub enum LirBodyKind {
 /// The metadata of a LIR body (function).
 pub struct LirBodyMetadata {
     /// The definition ID of the function.
-    pub id: DefId,
+    pub def_id: DefId,
     /// The name of the function.
     /// It aims to be the `symbol name` for the backend purpose.
     pub name: String,

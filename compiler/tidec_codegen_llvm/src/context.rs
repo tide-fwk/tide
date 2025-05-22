@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::ops::Deref;
 
 use inkwell::basic_block::BasicBlock;
@@ -12,18 +14,22 @@ use crate::lir::lir_body_metadata::{
     CallConvUtils, LinkageUtils, UnnamedAddressUtils, VisibilityUtils,
 };
 use crate::lir::lir_ty::BasicTypesUtils;
-use crate::ssa::{CodegenBackend, CodegenBackendTypes, PreDefineMethods};
+use crate::ssa::{CodegenBackend, CodegenBackendTypes, PreDefineCodegenMethods};
 use crate::CodegenMethods;
-use tidec_lir::lir::{LirBody, LirTyCtx};
+use tidec_lir::lir::{DefId, LirBody, LirTyCtx};
 use tidec_lir::syntax::RETURN_PLACE;
 
+// TODO: Add filelds from rustc/compiler/rustc_codegen_llvm/src/context.rs
 pub struct CodegenCtx<'ll> {
     // FIXME: Make this private
     pub ll_context: &'ll Context,
     pub ll_module: Module<'ll>,
 
+    /// The LIR type context.
     pub lir_ty_ctx: LirTyCtx,
-    // TODO: Add filelds from rustc/compiler/rustc_codegen_llvm/src/context.rs
+
+    /// A map from DefId to the LLVM value (usually a function value).
+    pub instances: RefCell<HashMap<DefId, AnyValueEnum<'ll>>>,
 }
 
 impl<'ll> Deref for CodegenCtx<'ll> {
@@ -48,9 +54,38 @@ impl<'ll> CodegenBackend for CodegenCtx<'ll> {
     type Module = Module<'ll>;
 }
 
-impl PreDefineMethods for CodegenCtx<'_> {
-    fn predefine_fn(&self, _lir_body: &LirBody) {
-        todo!()
+impl PreDefineCodegenMethods for CodegenCtx<'_> {
+    fn predefine_fn(&self, lir_body: &LirBody) {
+        let name = lir_body.metadata.name.as_str();
+
+        let ret_ty = lir_body.ret_and_args[RETURN_PLACE]
+            .ty
+            .into_basic_type(&self);
+        let formal_param_tys = lir_body.ret_and_args.as_slice()[RETURN_PLACE..]
+            .iter()
+            .map(|local_data| local_data.ty.into_basic_type_metadata(&self))
+            .collect::<Vec<_>>();
+        let fn_ty = self.declare_fn(ret_ty, formal_param_tys.as_slice());
+        let linkage = lir_body.metadata.linkage.into_linkage();
+        let calling_convention = lir_body.metadata.call_conv.into_call_conv();
+        let fn_val = self.ll_module.add_function(name, fn_ty, Some(linkage));
+        fn_val.set_call_conventions(calling_convention);
+
+        let fn_global_value = fn_val.as_global_value();
+        let visibility = lir_body.metadata.visibility.into_visibility();
+        fn_global_value.set_visibility(visibility);
+        let unnamed_addr = lir_body.metadata.unnamed_address.into_unnamed_address();
+        fn_global_value.set_unnamed_address(unnamed_addr);
+
+        debug!(
+            "get_or_declare_fn((name: {}, ret_ty: {:?}, param_tys: {:?}, linkage: {:?}, visibility: {:?}, calling_convention: {:?}, unnamed_addr: {:?})) delared",
+            name, ret_ty, formal_param_tys, linkage, visibility, calling_convention, unnamed_addr
+        );
+
+        self.instances.borrow_mut().insert(
+            lir_body.metadata.def_id,
+            AnyValueEnum::FunctionValue(fn_val),
+        );
     }
 }
 
@@ -93,26 +128,25 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
             ll_context,
             ll_module,
             lir_ty_ctx,
+            instances: RefCell::new(HashMap::new()),
         }
     }
 
-    /// Get the function value from the module.
-    ///
     /// TODO: dire che ci si aspetta che ritorna una funzione
-    fn get_fn(&self, name: &str) -> Option<AnyValueEnum<'ll>> {
-        Some(AnyValueEnum::FunctionValue(
-            self.ll_module.get_function(name)?,
-        ))
-    }
-
-    /// TODO: dire che ci si aspetta che ritorna una funzione
-    fn get_or_declare_fn(&self, lir_body: &LirBody) -> AnyValueEnum<'ll> {
+    fn get_fn(&self, lir_body: &LirBody) -> AnyValueEnum<'ll> {
         let name = lir_body.metadata.name.as_str();
 
-        if let Some(f) = self.get_fn(name) {
-            debug!("get_or_declare_fn(name: {}) found", name);
-            return f;
+        if let Some(instance) = self.instances.borrow().get(&lir_body.metadata.def_id) {
+            debug!("get_or_declare_fn(name: {}) found in instances", name);
+            return instance.clone();
         }
+
+        if let Some(f) = self.ll_module.get_function(name) {
+            debug!("get_or_declare_fn(name: {}) found in module", name);
+            return AnyValueEnum::FunctionValue(f);
+        }
+
+        // TODO: fallback by declaring the function
 
         let ret_ty = lir_body.ret_and_args[RETURN_PLACE]
             .ty
