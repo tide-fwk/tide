@@ -4,7 +4,7 @@ use std::ops::Deref;
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
-use inkwell::module::{Linkage, Module};
+use inkwell::module::Module;
 use inkwell::targets::{TargetData, TargetTriple};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
 use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum};
@@ -14,8 +14,9 @@ use crate::lir::lir_body_metadata::{
     CallConvUtils, LinkageUtils, UnnamedAddressUtils, VisibilityUtils,
 };
 use crate::lir::lir_ty::BasicTypesUtils;
-use crate::ssa::{CodegenBackend, CodegenBackendTypes, PreDefineCodegenMethods};
-use crate::CodegenMethods;
+use tidec_codegen_ssa::traits::{
+    CodegenBackend, CodegenBackendTypes, CodegenMethods, PreDefineCodegenMethods,
+};
 use tidec_lir::lir::{DefId, LirBody, LirTyCtx};
 use tidec_lir::syntax::RETURN_PLACE;
 

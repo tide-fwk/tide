@@ -1,7 +1,7 @@
 use tracing::{info, instrument};
 
 #[derive(Debug)]
-pub enum CodegenBackend {
+pub enum BackendKind {
     /// The LLVM backend.
     Llvm,
 
@@ -402,7 +402,7 @@ pub struct TyAndLayout<T> {
 
 #[derive(Debug)]
 pub struct Target {
-    pub codegen_backend: CodegenBackend,
+    pub codegen_backend: BackendKind,
 
     pub data_layout: TargetDataLayout,
 
@@ -412,7 +412,7 @@ pub struct Target {
 }
 
 impl Target {
-    pub fn new(codegen_backend: CodegenBackend) -> Self {
+    pub fn new(codegen_backend: BackendKind) -> Self {
         Target {
             data_layout: TargetDataLayout::new(),
             codegen_backend,
@@ -424,8 +424,8 @@ impl Target {
     // compiler backend.
     pub fn data_layout_string(&self) -> String {
         match self.codegen_backend {
-            CodegenBackend::Llvm => self.data_layout.into_llvm_datalayout_string(),
-            CodegenBackend::Cranelift => self.data_layout.into_cranelift_datalayout_string(),
+            BackendKind::Llvm => self.data_layout.into_llvm_datalayout_string(),
+            BackendKind::Cranelift => self.data_layout.into_cranelift_datalayout_string(),
         }
     }
 
@@ -437,12 +437,12 @@ impl Target {
         }
 
         match self.codegen_backend {
-            CodegenBackend::Llvm => self
+            BackendKind::Llvm => self
                 .target_triple
                 .as_ref()
                 .unwrap()
                 .into_llvm_triple_string(),
-            CodegenBackend::Cranelift => self
+            BackendKind::Cranelift => self
                 .target_triple
                 .as_ref()
                 .unwrap()

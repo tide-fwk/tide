@@ -2,7 +2,7 @@ use crate::{
     basic_blocks::{BasicBlock, BasicBlockData},
     syntax::{Body, LirTy, Local, LocalData},
 };
-use tidec_abi::{CodegenBackend, Target, TyAndLayout};
+use tidec_abi::{BackendKind, Target, TyAndLayout};
 use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, instrument};
 
@@ -275,7 +275,7 @@ pub struct LirTyCtx {
 
 impl LirTyCtx {
     #[instrument]
-    pub fn new(codegen_backend: CodegenBackend) -> Self {
+    pub fn new(codegen_backend: BackendKind) -> Self {
         let target = Target::new(codegen_backend);
         let ctx = LirTyCtx { target };
         debug!("LirTyCtx created: {:?}", ctx);

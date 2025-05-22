@@ -4,13 +4,14 @@ use inkwell::types::BasicType;
 use inkwell::values::{AnyValueEnum, FunctionValue};
 use inkwell::{basic_block::BasicBlock, builder::Builder};
 use tidec_abi::TyAndLayout;
+use tidec_codegen_ssa::traits::{
+    BuilderMethods, CodegenBackend, CodegenBackendTypes, CodegenMethods, PreDefineCodegenMethods,
+};
 use tidec_lir::syntax::LirTy;
 use tracing::instrument;
 
 use crate::context::CodegenCtx;
 use crate::lir::lir_ty::BasicTypesUtils;
-use crate::ssa::CodegenBackendTypes;
-use crate::BuilderMethods;
 
 /// A builder for generating LLVM IR code.
 ///
