@@ -1,6 +1,7 @@
-use crate::CodegenCtx;
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
 use tidec_lir::syntax::LirTy;
+
+use crate::context::CodegenCtx;
 
 /// A trait to convert LirTy into LLVM BasicTypeEnum and BasicMetadataTypeEnum.
 ///
