@@ -47,7 +47,9 @@ pub trait PreDefineCodegenMethods: Sized + CodegenBackendTypes {
 pub trait CodegenMethods<'be>:
     Sized + CodegenBackendTypes + CodegenBackend + PreDefineCodegenMethods
 {
+    /// Creates a new codegen context for the given LIR type context and module.
     fn new(lir_ty_ctx: LirTyCtx, context: &'be Self::Context, module: Self::Module) -> Self;
+    /// Returns the function value for the given LIR body.
     fn get_fn(&self, lir_body: &LirBody) -> Self::Value;
 }
 
