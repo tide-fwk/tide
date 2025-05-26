@@ -5,6 +5,7 @@ use tidec_lir::lir::{LirTyCtx, LirUnit};
 
 use crate::{builder::CodegenBuilder, context::CodegenCtx};
 
+// TODO(bruzzone): try to move it to `tidec_codegen_ssa`
 pub fn compile_codegen_unit<'ll>(lir_ty_ctx: LirTyCtx, lir_unit: LirUnit) {
     let ll_context = Context::create();
     let ll_module = ll_context.create_module(&lir_unit.metadata.unit_name);

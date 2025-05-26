@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
-use inkwell::types::BasicType;
-use inkwell::values::{AnyValueEnum, FunctionValue};
+use inkwell::types::{BasicType, BasicTypeEnum};
+use inkwell::values::{AnyValueEnum, FunctionValue, IntValue};
 use inkwell::{basic_block::BasicBlock, builder::Builder};
 use tidec_abi::TyAndLayout;
 use tidec_codegen_ssa::traits::{BuilderMethods, CodegenBackendTypes};
@@ -16,7 +16,7 @@ use crate::lir::lir_ty::BasicTypesUtils;
 /// This struct wraps the `inkwell::builder::Builder` and provides
 /// additional methods for code generation.
 pub struct CodegenBuilder<'a, 'll> {
-    pub builder: Builder<'ll>,
+    pub ll_builder: Builder<'ll>,
     pub ctx: &'a CodegenCtx<'ll>,
 }
 
@@ -40,15 +40,8 @@ impl<'ll> CodegenBackendTypes for CodegenBuilder<'_, 'll> {
 impl<'a, 'll> CodegenBuilder<'a, 'll> {
     #[instrument(skip(ctx))]
     pub fn with_ctx(ctx: &'a CodegenCtx<'ll>) -> Self {
-        let builder = ctx.ll_context.create_builder();
-        CodegenBuilder { builder, ctx }
-    }
-
-    pub fn llvm_layout_of(&self, ty: LirTy) -> Result<TyAndLayout<LirTy>, String> {
-        let size = ty.into_basic_type(self.ctx).size_of();
-        // let align = ty.into_basic_type(self.ctx).get
-
-        Err("tmp".to_string())
+        let ll_builder = ctx.ll_context.create_builder();
+        CodegenBuilder { ll_builder, ctx }
     }
 }
 
@@ -59,8 +52,39 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
     /// The builder is positioned at the end of the BasicBlock.
     fn build(ctx: &'a CodegenCtx<'ll>, llbb: BasicBlock) -> Self {
         let builder = CodegenBuilder::with_ctx(ctx);
-        builder.builder.position_at_end(llbb);
+        builder.ll_builder.position_at_end(llbb);
         builder
+    }
+
+    #[instrument(skip(self))]
+    /// Allocate memory for a value of the given size and alignment.
+    fn alloca(&self, size: tidec_abi::Size, align: tidec_abi::Align) -> Self::Value {
+        let builder = CodegenBuilder::with_ctx(self.ctx);
+        builder
+            .ll_builder
+            .position_at_end(builder.ll_builder.get_insert_block().unwrap());
+        let ty = self
+            .ctx
+            .ll_context
+            .i8_type()
+            .array_type(size.bytes() as u32);
+        let name = ""; // Generate a unique name for the alloca
+
+        match builder.ll_builder.build_alloca(ty, name) {
+            Ok(pointer_value) => {
+                if let Err(err) = pointer_value
+                    .as_instruction()
+                    .unwrap()
+                    .set_alignment(align.bytes() as u32)
+                {
+                    panic!("Failed to set alignment: {}", err);
+                }
+                pointer_value.into()
+            }
+            Err(err) => {
+                panic!("Failed to allocate memory: {}", err);
+            }
+        }
     }
 
     /// Append a new basic block to the function.
@@ -80,12 +104,6 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
     }
 
     fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy> {
-        match self.llvm_layout_of(ty) {
-            Ok(layout) => layout,
-            Err(err) => {
-                // Fallback to the LIR type context
-                self.lir_ty_ctx.layout_of(ty)
-            }
-        }
+        self.lir_ty_ctx.layout_of(ty)
     }
 }

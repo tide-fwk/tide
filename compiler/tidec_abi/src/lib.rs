@@ -32,7 +32,7 @@ impl From<&AddressSpace> for u32 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 /// Size of a type in bytes.
 pub struct Size(u64);
 
@@ -57,7 +57,7 @@ pub enum AlignError {
     NotPowerOfTwo(u64),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 /// Alignment of a type in bytes (always a power of two).
 pub struct Align(u64);
 
