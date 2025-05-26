@@ -3,12 +3,18 @@ pub mod calling_convention;
 use tracing::{info, instrument};
 
 #[derive(Debug)]
+/// The backend kind for code generation.
+///
+/// This enum represents the different backends that can be used for code generation.
 pub enum BackendKind {
     /// The LLVM backend.
     Llvm,
 
     /// The Cranelift backend.
     Cranelift,
+
+    /// The GCC (GNU Compiler Collection) backend.
+    Gcc,
 }
 
 // TODO: Other address spaces.
@@ -100,12 +106,23 @@ impl Align {
     }
 }
 
-/// Alignment and preferred alignment of a type in bytes (always a power of two).
-/// LLVM uses the same alignment for both ABI and preferred alignment, if the
-/// preferred alignment is not specified.
 #[derive(Debug)]
+/// Specifies both the ABI-required and preferred alignment for a type, in bytes.
+///
+/// Both `abi` and `pref` are powers of two. The ABI alignment (`abi`) is the minimum
+/// required alignment for correct program execution, as defined by the platform's ABI.
+/// The preferred alignment (`pref`) is a potentially larger value that may yield better
+/// performance on some architectures.
+///
+/// For example, in LLVM, if a preferred alignment is not explicitly set, it defaults to
+/// the ABI alignment.
+///
+/// This type is commonly used during layout computation and codegen to determine
+/// how types should be aligned in memory.
 pub struct AbiAndPrefAlign {
+    /// The alignment required by the ABI for this type.
     pub abi: Align,
+    /// The preferred alignment for this type, which may be larger than the ABI alignment.
     pub pref: Align,
 }
 
@@ -131,14 +148,24 @@ pub enum Endianess {
 }
 
 #[derive(Debug)]
+/// Describes the target platform's data layout, including type alignments, pointer size,
+/// and other ABI-related information used during code generation.
+///
+/// It includes alignment requirements for integer, float, and vector types, as well as
+/// general properties such as pointer size and aggregate alignment.
 pub struct TargetDataLayout {
+    /// The endianness of the target architecture.
     pub endianess: Endianess,
+
+    // Integer type alignments
     pub i1_align: AbiAndPrefAlign,
     pub i8_align: AbiAndPrefAlign,
     pub i16_align: AbiAndPrefAlign,
     pub i32_align: AbiAndPrefAlign,
     pub i64_align: AbiAndPrefAlign,
     pub i128_align: AbiAndPrefAlign,
+
+    // Floating point type alignments
     pub f16_align: AbiAndPrefAlign,
     pub f32_align: AbiAndPrefAlign,
     pub f64_align: AbiAndPrefAlign,
@@ -147,7 +174,10 @@ pub struct TargetDataLayout {
     /// The size of pointers in bytes.
     pub pointer_size: u64,
 
+    /// The ABI and preferred alignment for pointers.
     pub pointer_align: AbiAndPrefAlign,
+
+    /// The minimum and preferred alignment for aggregate types (e.g., structs, arrays).
     pub aggregate_align: AbiAndPrefAlign,
 
     /// Alignments for vector types.
@@ -254,6 +284,10 @@ impl TargetDataLayout {
         unimplemented!()
     }
 
+    fn into_gcc_datalayout_string(&self) -> String {
+        unimplemented!()
+    }
+
     // /// Parse data layout from an [llvm data layout string](https://llvm.org/docs/LangRef.html#data-layout)
     // /// For example, for x86_64-unknown-linux-gnu, the data layout string is:
     // /// `e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128`
@@ -356,18 +390,27 @@ impl TargetDataLayout {
     // }
 }
 
-/// The target triple is a string that describes the target architecture,
-///
-/// This is a string that describes the target architecture, vendor,
-/// operating system, and environment.
-///
-/// For example, "x86_64-unknown-linux-gnu".
 #[derive(Debug)]
+/// Represents a target triple, which uniquely identifies a compilation target.
+///
+/// A target triple is a string that encodes information about the target architecture,
+/// vendor, operating system, environment, and ABI. This is commonly used to select
+/// appropriate code generation strategies, linkers, standard libraries, and target-specific
+/// configurations.
+///
+/// Example: `"x86_64-unknown-linux-gnu"`
+///
+/// Each component of the triple is stored separately for easier access and manipulation.
 pub struct TargetTriple {
+    /// The target architecture (e.g., "x86_64", "aarch64").
     pub arch: String,
+    /// The target vendor (e.g., "unknown", "apple").
     pub vendor: String,
+    /// The target operating system (e.g., "linux", "windows").
     pub os: String,
+    /// The target environment or runtime (e.g., "gnu", "msvc", "musl").
     pub env: String,
+    /// The ABI used on the target (e.g., "eabi", "gnu").
     pub abi: String,
 }
 
@@ -394,22 +437,44 @@ impl TargetTriple {
     pub fn into_cranelift_triple_string(&self) -> String {
         unimplemented!()
     }
+
+    pub fn into_gcc_triple_string(&self) -> String {
+        unimplemented!()
+    }
 }
 
+/// Represents a type along with its size and alignment information.
+///
+/// This is commonly used during codegen and layout computation to reason about
+/// how values should be represented in memory on the target platform.
 pub struct TyAndLayout<T> {
+    /// The type this layout refers to.
+    ///
+    /// This is usually a LIR type, but can be any type that has a size and alignment.
     pub ty: T,
+    /// The size of the type in bytes.
     pub size: Size,
+    /// The ABI and preferred alignment of the type.
     pub align: AbiAndPrefAlign,
 }
 
 #[derive(Debug)]
+/// Describes the target configuration used during code generation.
+///
+/// This struct encapsulates information about the backend, data layout,
+/// and optional target triple. It is used to drive architecture- and
+/// platform-specific decisions throughout the compiler.
 pub struct Target {
+    /// The codegen backend to use.
     pub codegen_backend: BackendKind,
-
+    /// The data layout configuration for the target, including type alignments,
+    /// pointer size, and other ABI-relevant properties.
     pub data_layout: TargetDataLayout,
-
-    /// If unspecified, the target triple will be not setted
-    /// in the LLVM module.
+    /// The target triple string identifying the target architecture, vendor,
+    /// operating system, and environment.
+    ///
+    /// If this is `None`, the target triple will not be set in the LLVM module,
+    /// which may affect platform-specific codegen behavior or defaults.
     target_triple: Option<TargetTriple>,
 }
 
@@ -428,6 +493,7 @@ impl Target {
         match self.codegen_backend {
             BackendKind::Llvm => self.data_layout.into_llvm_datalayout_string(),
             BackendKind::Cranelift => self.data_layout.into_cranelift_datalayout_string(),
+            BackendKind::Gcc => self.data_layout.into_gcc_datalayout_string(),
         }
     }
 
@@ -449,6 +515,11 @@ impl Target {
                 .as_ref()
                 .unwrap()
                 .into_cranelift_triple_string(),
+            BackendKind::Gcc => self
+                .target_triple
+                .as_ref()
+                .unwrap()
+                .into_gcc_triple_string(),
         }
     }
 }
