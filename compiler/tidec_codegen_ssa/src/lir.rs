@@ -1,6 +1,8 @@
-use std::alloc::Layout;
-
-use tidec_abi::{Align, Size, TyAndLayout, calling_convention::function::FnAbi};
+use tidec_abi::{
+    calling_convention::function::FnAbi,
+    layout::TyAndLayout,
+    size_and_align::{Align, Size},
+};
 use tidec_lir::{
     lir::LirBody,
     syntax::{LirTy, Local, LocalData},
@@ -35,10 +37,15 @@ pub struct PlaceRef<V> {
 impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceRef<V> {
     pub fn alloca<B: BuilderMethods<'a, 'be, Value = V>>(
         builder: &mut B,
-        layout: TyAndLayout<LirTy>,
+        ty_and_layout: TyAndLayout<LirTy>,
     ) -> Self {
         // TODO: Assert that the ty is not unsized (through `TyAndLayout`).
-        PlaceVal::alloca(builder, layout.size, layout.align.abi).with_layout(layout)
+        PlaceVal::alloca(
+            builder,
+            ty_and_layout.layout.size,
+            ty_and_layout.layout.align.abi,
+        )
+        .with_layout(ty_and_layout)
     }
 }
 

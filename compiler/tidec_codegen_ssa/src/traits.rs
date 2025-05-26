@@ -1,4 +1,7 @@
-use tidec_abi::{Align, Size, TyAndLayout};
+use tidec_abi::{
+    layout::TyAndLayout,
+    size_and_align::{Align, Size},
+};
 use tidec_lir::{
     lir::{LirBody, LirTyCtx},
     syntax::LirTy,
