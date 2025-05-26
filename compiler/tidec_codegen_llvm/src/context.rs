@@ -18,7 +18,7 @@ use tidec_codegen_ssa::traits::{
     CodegenBackend, CodegenBackendTypes, CodegenMethods, PreDefineCodegenMethods,
 };
 use tidec_lir::lir::{DefId, LirBody, LirTyCtx};
-use tidec_lir::syntax::RETURN_PLACE;
+use tidec_lir::syntax::RETURN_LOCAL;
 
 // TODO: Add filelds from rustc/compiler/rustc_codegen_llvm/src/context.rs
 pub struct CodegenCtx<'ll> {
@@ -59,10 +59,10 @@ impl PreDefineCodegenMethods for CodegenCtx<'_> {
     fn predefine_fn(&self, lir_body: &LirBody) {
         let name = lir_body.metadata.name.as_str();
 
-        let ret_ty = lir_body.ret_and_args[RETURN_PLACE]
+        let ret_ty = lir_body.ret_and_args[RETURN_LOCAL]
             .ty
             .into_basic_type(&self);
-        let formal_param_tys = lir_body.ret_and_args.as_slice()[RETURN_PLACE..]
+        let formal_param_tys = lir_body.ret_and_args.as_slice()[RETURN_LOCAL..]
             .iter()
             .map(|local_data| local_data.ty.into_basic_type_metadata(&self))
             .collect::<Vec<_>>();
@@ -149,10 +149,10 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
 
         // TODO: fallback by declaring the function
 
-        let ret_ty = lir_body.ret_and_args[RETURN_PLACE]
+        let ret_ty = lir_body.ret_and_args[RETURN_LOCAL]
             .ty
             .into_basic_type(&self);
-        let formal_param_tys = lir_body.ret_and_args.as_slice()[RETURN_PLACE..]
+        let formal_param_tys = lir_body.ret_and_args.as_slice()[RETURN_LOCAL..]
             .iter()
             .map(|local_data| local_data.ty.into_basic_type_metadata(&self))
             .collect::<Vec<_>>();

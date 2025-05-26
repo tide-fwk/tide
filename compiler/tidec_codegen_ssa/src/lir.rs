@@ -1,3 +1,4 @@
+use tidec_abi::calling_convention::function::FnAbi;
 use tidec_lir::{
     lir::LirBody,
     syntax::{Local, LocalData},
@@ -13,11 +14,13 @@ pub fn compile_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
     ctx: &'a B::CodegenCtx,
     lir_body: LirBody,
 ) {
+    let fn_abi = FnAbi {}; // TODO: ctx.get_fn_abi(&lir_body);
     let fn_value = ctx.get_fn(&lir_body);
     let entry_bb = B::append_basic_block(&ctx, fn_value, "entry");
     let start_builder = B::build(ctx, entry_bb);
 
     let mut fn_ctx = FnCtx::<'_, '_, B> {
+        fn_abi,
         lir_body,
         fn_value,
         ctx,
@@ -30,8 +33,8 @@ pub fn compile_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
 
             for (local, local_data) in locals.iter_enumerated() {
                 let layout = start_builder.layout_of(local_data.ty);
-                // let alloca =
-                // local_allocas[local] = alloca;
+                // let ref_local =
+                // local_allocas[local] = ref_local;
             }
 
             local_allocas
