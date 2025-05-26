@@ -1,3 +1,4 @@
+use tidec_abi::calling_convention::function::FnAbi;
 use tidec_lir::{
     lir::{LirBody, LirUnit},
     syntax::{Local, LocalData},
@@ -6,12 +7,16 @@ use tidec_utils::index_vec::IdxVec;
 use tracing::instrument;
 
 use crate::{
-    lir::compile_lir_body,
+    lir,
     traits::{BuilderMethods, PreDefineCodegenMethods},
 };
 
 pub struct FnCtx<'a, 'be, B: BuilderMethods<'a, 'be>> {
-    // pub locals: IdxVec<Local, LocalRef>,
+    /// The function ABI.
+    /// This contains information about the calling convention,
+    /// argument types, return type, etc.
+    pub fn_abi: FnAbi,
+
     /// The body of the function in LIR.
     pub lir_body: LirBody,
 
@@ -43,6 +48,6 @@ pub fn compile_lir_unit<'a, 'be, B: BuilderMethods<'a, 'be>>(
 
     // Create the functions
     for lir_body in lir_unit.body {
-        compile_lir_body::<B>(ctx, lir_body);
+        lir::compile_lir_body::<B>(ctx, lir_body);
     }
 }
