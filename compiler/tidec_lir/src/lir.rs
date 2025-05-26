@@ -2,7 +2,7 @@ use crate::{
     basic_blocks::{BasicBlock, BasicBlockData},
     syntax::{Body, LirTy, Local, LocalData},
 };
-use tidec_abi::{BackendKind, Target, TyAndLayout};
+use tidec_abi::{layout::TyAndLayout, target::{BackendKind, Target}};
 use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, instrument};
 
@@ -287,6 +287,8 @@ impl LirTyCtx {
     }
 
     pub fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy> {
-        todo!()
+        // let data_layout = self.target.data_layout;
+
+        unimplemented!();
     }
 }

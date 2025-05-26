@@ -3,7 +3,8 @@ use std::ops::Deref;
 use inkwell::types::{BasicType, BasicTypeEnum};
 use inkwell::values::{AnyValueEnum, FunctionValue, IntValue};
 use inkwell::{basic_block::BasicBlock, builder::Builder};
-use tidec_abi::TyAndLayout;
+use tidec_abi::layout::TyAndLayout;
+use tidec_abi::size_and_align::{Align, Size};
 use tidec_codegen_ssa::traits::{BuilderMethods, CodegenBackendTypes};
 use tidec_lir::syntax::LirTy;
 use tracing::instrument;
@@ -58,7 +59,7 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
 
     #[instrument(skip(self))]
     /// Allocate memory for a value of the given size and alignment.
-    fn alloca(&self, size: tidec_abi::Size, align: tidec_abi::Align) -> Self::Value {
+    fn alloca(&self, size: Size, align: Align) -> Self::Value {
         let builder = CodegenBuilder::with_ctx(self.ctx);
         builder
             .ll_builder

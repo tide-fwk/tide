@@ -4,7 +4,7 @@ use std::path::Path;
 
 use inkwell::context::Context;
 use inkwell::types::BasicType;
-use tidec_abi::BackendKind;
+use tidec_abi::target::BackendKind;
 use tidec_codegen_llvm::builder::CodegenBuilder;
 use tidec_codegen_llvm::context::CodegenCtx;
 use tidec_codegen_llvm::entry::compile_codegen_unit;
