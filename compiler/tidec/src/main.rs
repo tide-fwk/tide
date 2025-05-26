@@ -7,11 +7,16 @@ use inkwell::types::BasicType;
 use tidec_abi::BackendKind;
 use tidec_codegen_llvm::builder::CodegenBuilder;
 use tidec_codegen_llvm::context::CodegenCtx;
+use tidec_codegen_llvm::entry::compile_codegen_unit;
 use tidec_codegen_llvm::lir::lir_ty::BasicTypesUtils;
 use tidec_codegen_ssa::traits::CodegenMethods;
-use tidec_lir::lir::LirTyCtx;
-use tidec_lir::syntax::LirTy;
-use tidec_utils::v_debug;
+use tidec_lir::lir::{
+    CallConv, DefId, Linkage, LirBody, LirBodyKind, LirBodyMetadata, LirItemKind, LirTyCtx,
+    LirUnit, LirUnitMetadata, UnnamedAddress, Visibility,
+};
+use tidec_lir::syntax::{LirTy, LocalData};
+use tidec_utils::index_vec::IdxVec;
+use tracing::debug;
 
 // TIDEC_LOG=debug cargo run; clang main.ll -o main; ./main; echo $?
 //
@@ -24,7 +29,7 @@ use tidec_utils::v_debug;
 // ```
 fn main() {
     init_tidec_logger();
-    v_debug!("Logging initialized");
+    debug!("Logging initialized");
 
     let lir_ctx = LirTyCtx::new(BackendKind::Llvm);
 
@@ -40,18 +45,18 @@ fn main() {
     let basic_block = codegen.ctx.ll_context.append_basic_block(function, "entry");
     // It is important to set the position at the end of the basic block, which in this case is the
     // start of the entry block.
-    codegen.builder.position_at_end(basic_block);
+    codegen.ll_builder.position_at_end(basic_block);
 
     // Declare an integer variable
-    let _0 = codegen.builder.build_alloca(i32_type, "_0").unwrap();
+    let _0 = codegen.ll_builder.build_alloca(i32_type, "_0").unwrap();
     // Store the 5 in the first_place
     let i32_five = i32_type.const_int(5, false);
-    let _ = codegen.builder.build_store(_0, i32_five).unwrap();
+    let _ = codegen.ll_builder.build_store(_0, i32_five).unwrap();
 
     // codegen.builder.build_return(Some(&i64_type.const_int(0, false))).unwrap(); // Reutrn 0
     // Dereference the _0 and return it
-    let deref_0 = codegen.builder.build_load(i32_type, _0, "_0").unwrap();
-    codegen.builder.build_return(Some(&deref_0)).unwrap();
+    let deref_0 = codegen.ll_builder.build_load(i32_type, _0, "_0").unwrap();
+    codegen.ll_builder.build_return(Some(&deref_0)).unwrap();
 
     codegen
         .ctx
@@ -68,6 +73,41 @@ fn main() {
     let align = int_value.get_type().get_alignment();
     println!("Size of i8: {}", int_value);
     println!("Alignment of i8: {}", align);
+}
+
+fn main2() {
+    init_tidec_logger();
+    debug!("Logging initialized");
+
+    let lir_ctx = LirTyCtx::new(BackendKind::Llvm);
+
+    let lir_body_metadata = LirBodyMetadata {
+        def_id: DefId(0),
+        name: "main".to_string(),
+        kind: LirBodyKind::Item(LirItemKind::Function),
+        inlined: false,
+        linkage: Linkage::LinkOnce, // Check the correct linkage
+        visibility: Visibility::Default,
+        unnamed_address: UnnamedAddress::None,
+        call_conv: CallConv::C,
+    };
+
+    let lir_unit: LirUnit = LirUnit {
+        metadata: LirUnitMetadata {
+            unit_name: "fcb_module".to_string(),
+        },
+        body: IdxVec::from_raw(vec![LirBody {
+            metadata: lir_body_metadata,
+            ret_and_args: IdxVec::from_raw(vec![LocalData {
+                ty: LirTy::I32,
+                mutable: false,
+            }]),
+            locals: IdxVec::new(),
+            basic_blocks: IdxVec::new(),
+        }]),
+    };
+
+    compile_codegen_unit(lir_ctx, lir_unit);
 }
 
 /// Initialize the logger for the tidec project.

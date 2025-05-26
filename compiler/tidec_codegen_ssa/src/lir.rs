@@ -1,4 +1,6 @@
-use tidec_abi::{Align, TyAndLayout, calling_convention::function::FnAbi};
+use std::alloc::Layout;
+
+use tidec_abi::{Align, Size, TyAndLayout, calling_convention::function::FnAbi};
 use tidec_lir::{
     lir::LirBody,
     syntax::{LirTy, Local, LocalData},
@@ -29,7 +31,16 @@ pub struct PlaceRef<V> {
     /// or types with nontrivial ABI requirements.
     place_ty_layout: TyAndLayout<LirTy>,
 }
-// impl<V: Copy + PartialEq + std::fmt::Debug> PlaceRef<V> {}
+
+impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceRef<V> {
+    pub fn alloca<B: BuilderMethods<'a, 'be, Value = V>>(
+        builder: &mut B,
+        layout: TyAndLayout<LirTy>,
+    ) -> Self {
+        // TODO: Assert that the ty is not unsized (through `TyAndLayout`).
+        PlaceVal::alloca(builder, layout.size, layout.align.abi).with_layout(layout)
+    }
+}
 
 /// A backend value paired with alignment information, representing the underlying storage
 /// for a LIR place during codegen.
@@ -49,7 +60,38 @@ pub struct PlaceVal<V> {
     /// especially for aligned loads/stores and optimizations.
     align: Align,
 }
-// impl<V: Copy + PartialEq + std::fmt::Debug> PlaceVal<V> {}
+impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceVal<V> {
+    pub fn alloca<B: BuilderMethods<'a, 'be, Value = V>>(
+        builder: &mut B,
+        size: Size,
+        align: Align,
+    ) -> Self {
+        let value = builder.alloca(size, align);
+        PlaceVal { value, align }
+    }
+
+    pub fn with_layout(self, layout: TyAndLayout<LirTy>) -> PlaceRef<V> {
+        // TODO: Assert that the type is not unsized (through `TyAndLayout`).
+        PlaceRef {
+            place_value: self,
+            place_ty_layout: layout,
+        }
+    }
+}
+
+/// A local reference in the LIR, representing a local variable or temporary
+/// during code generation.
+///
+/// This enum is used to represent different kinds of local references
+/// that can be used in the backend code generation process.
+///
+/// `LocalRef` is a wrapper around `PlaceRef`, which provides
+/// a way to refer to local variables in a type-safe manner
+/// while also carrying the necessary metadata for code generation.
+pub enum LocalRef<V> {
+    /// A local backed by a memory location with associated layout and alignment metadata.
+    PlaceRef(PlaceRef<V>),
+}
 
 pub fn compile_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
     ctx: &'a B::CodegenCtx,
@@ -58,7 +100,7 @@ pub fn compile_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
     let fn_abi = FnAbi {}; // TODO: ctx.get_fn_abi(&lir_body);
     let fn_value = ctx.get_fn(&lir_body);
     let entry_bb = B::append_basic_block(&ctx, fn_value, "entry");
-    let start_builder = B::build(ctx, entry_bb);
+    let mut start_builder = B::build(ctx, entry_bb);
 
     let mut fn_ctx = FnCtx::<'_, '_, B> {
         fn_abi,
@@ -68,29 +110,26 @@ pub fn compile_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
         locals: IdxVec::new(),
     };
 
-    let allocate_locals =
-        |fn_value: B::Value, locals: &IdxVec<Local, LocalData>| -> IdxVec<Local, B::Value> {
+    let mut allocate_locals =
+        |locals: &IdxVec<Local, LocalData>| -> IdxVec<Local, LocalRef<B::Value>> {
             let mut local_allocas = IdxVec::new();
 
             for (local, local_data) in locals.iter_enumerated() {
                 let layout = start_builder.layout_of(local_data.ty);
-                // let ref_local =
-                // local_allocas[local] = ref_local;
+                let local_ref = LocalRef::PlaceRef(PlaceRef::alloca(&mut start_builder, layout));
+                local_allocas[local] = local_ref;
             }
 
             local_allocas
         };
 
     // Allocate the return value and arguments
-    let mut locals = allocate_locals(fn_ctx.fn_value, &fn_ctx.lir_body.ret_and_args);
+    let mut locals = allocate_locals(&fn_ctx.lir_body.ret_and_args);
     // Allocate the locals
-    locals.append(&mut allocate_locals(
-        fn_ctx.fn_value,
-        &fn_ctx.lir_body.locals,
-    ));
+    locals.append(&mut allocate_locals(&fn_ctx.lir_body.locals));
 
-    // Initialize the locals in the function context
-    fn_ctx.locals = locals;
+    // Initialize the locals in the function context. Do not set they directly in the `FnCtx`.
+    // fn_ctx.locals = locals;
 
     // Compile the basic blocks
     // for bb in lir_body.basic_blocks.iter() {

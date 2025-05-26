@@ -7,7 +7,7 @@ use tidec_utils::index_vec::IdxVec;
 use tracing::instrument;
 
 use crate::{
-    lir,
+    lir::{self, LocalRef},
     traits::{BuilderMethods, PreDefineCodegenMethods},
 };
 
@@ -27,8 +27,10 @@ pub struct FnCtx<'a, 'be, B: BuilderMethods<'a, 'be>> {
     /// The codegen context.
     pub ctx: &'a B::CodegenCtx,
 
-    // The allocated locals and temporaries for the function.
-    pub locals: IdxVec<Local, B::Value>,
+    /// The allocated locals and temporaries for the function.
+    ///
+    /// Note that the `B::Value` type is used to represent the local references.
+    pub locals: IdxVec<Local, LocalRef<B::Value>>,
 }
 
 impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {

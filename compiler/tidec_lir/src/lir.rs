@@ -7,7 +7,7 @@ use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, instrument};
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy)]
-pub struct DefId(usize);
+pub struct DefId(pub usize);
 
 /// Specifies the linkage of a symbol.
 /// All Global Variables and Functions have one of the following types of linkage.

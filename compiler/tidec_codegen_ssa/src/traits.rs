@@ -1,4 +1,4 @@
-use tidec_abi::TyAndLayout;
+use tidec_abi::{Align, Size, TyAndLayout};
 use tidec_lir::{
     lir::{LirBody, LirTyCtx},
     syntax::LirTy,
@@ -67,6 +67,8 @@ pub trait BuilderMethods<'a, 'be>: Sized + CodegenBackendTypes {
             MetadataType = Self::MetadataType,
             MetadataValue = Self::MetadataValue,
         >;
+
+    fn alloca(&self, size: Size, align: Align) -> Self::Value;
 
     fn build(ctx: &'a Self::CodegenCtx, bb: Self::BasicBlock) -> Self;
 

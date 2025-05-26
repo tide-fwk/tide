@@ -1,6 +1,6 @@
 use tidec_utils::idx::Idx;
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum LirTy {
     I8,
     I16,
