@@ -286,7 +286,7 @@ impl LirTyCtx {
         &self.target
     }
 
-    pub fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy> {
+    pub fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy> {;
         // let data_layout = self.target.data_layout;
 
         unimplemented!();

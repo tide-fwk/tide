@@ -48,7 +48,6 @@ impl Size {
     }
 }
 
-
 #[derive(Debug, Clone, Copy)]
 /// Alignment of a type in bytes (always a power of two).
 pub struct Align(u64);
