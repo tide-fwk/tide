@@ -29,3 +29,17 @@ pub struct Layout {
 pub enum BackendRepr {
     Todo,
 }
+
+pub struct LayoutCtx {}
+
+
+impl LayoutCtx {
+    pub fn new() -> Self {
+        LayoutCtx {}
+    }
+
+    /// Computes the layout for a given type.
+    pub fn compute_layout<T>(&self, ty: T) -> TyAndLayout<T> {
+
+    }
+}
