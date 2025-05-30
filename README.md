@@ -23,6 +23,12 @@
 - D. Barret, PLDI'93 - [Using lifetime predictors to improve memory allocation performance][Using lifetime predictors to improve memory allocation performance]
 - J. Talpin, JFP'92 - [Polymorphic type, region and effect inference][Polymorphic type, region and effect inference]
 
+### arXiv
+
+- A. Engelke, arXiv'25 may - [TPDE: A Fast Adaptable Compiler Back-End Framework][TPDE: A Fast Adaptable Compiler Back-End Framework]
+
+
+[TPDE: A Fast Adaptable Compiler Back-End Framework]: https://arxiv.org/abs/2505.22610
 
 [GoFree: Reducing Garbage Collection via Compiler-Inserted Freeing]: https://dl.acm.org/doi/pdf/10.1145/3696443.3708925
 [Garbage-Collection Safety for Region-Based Type-Polymorphic Programs]: https://dl.acm.org/doi/pdf/10.1145/3591229
