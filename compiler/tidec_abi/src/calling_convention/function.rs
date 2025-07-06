@@ -1,2 +1,1 @@
-pub struct FnAbi {
-}
+pub struct FnAbi {}

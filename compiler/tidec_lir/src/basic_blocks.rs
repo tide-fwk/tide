@@ -1,6 +1,6 @@
-use tidec_utils::{idx::Idx, index_vec::IdxVec};
+use tidec_utils::idx::Idx;
 
-use crate::syntax::{Local, LocalData, Statement, Terminator};
+use crate::syntax::{Statement, Terminator};
 
 #[derive(Eq, PartialEq)]
 pub struct BasicBlock(usize);
@@ -10,8 +10,8 @@ pub struct BasicBlock(usize);
 /// A basic block is a sequence of statements that ends with a terminator.
 /// The terminator is the last statement of the block and transfers control to another block.
 pub struct BasicBlockData {
-    statements: Vec<Statement>,
-    terminator: Terminator,
+    pub statements: Vec<Statement>,
+    pub terminator: Terminator,
 }
 
 ////////// Trait implementations  //////////

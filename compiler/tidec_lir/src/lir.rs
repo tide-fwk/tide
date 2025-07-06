@@ -2,7 +2,10 @@ use crate::{
     basic_blocks::{BasicBlock, BasicBlockData},
     syntax::{Body, LirTy, Local, LocalData},
 };
-use tidec_abi::{layout::TyAndLayout, target::{BackendKind, Target}};
+use tidec_abi::{
+    layout::TyAndLayout,
+    target::{BackendKind, Target},
+};
 use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, instrument};
 
@@ -243,6 +246,7 @@ pub struct LirBody {
     pub metadata: LirBodyMetadata,
 
     /// The locals for return value and arguments of the function.
+    /// The first local is the return value, and the rest are the arguments.
     pub ret_and_args: IdxVec<Local, LocalData>,
 
     /// The rest of the locals.
@@ -286,7 +290,7 @@ impl LirTyCtx {
         &self.target
     }
 
-    pub fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy> {;
+    pub fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy> {
         // let data_layout = self.target.data_layout;
 
         unimplemented!();
