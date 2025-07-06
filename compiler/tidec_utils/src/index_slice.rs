@@ -5,7 +5,7 @@
 use crate::idx::{Idx, IntoSliceIdx};
 use std::{
     marker::PhantomData,
-    ops::{Index, IndexMut, RangeFrom},
+    ops::{Index, IndexMut},
     slice::{self, SliceIndex},
 };
 

@@ -1,3 +1,4 @@
+use std::num::NonZero;
 // #[macro_use] extern crate tidec_utils;
 //
 use std::path::Path;
@@ -10,11 +11,15 @@ use tidec_codegen_llvm::context::CodegenCtx;
 use tidec_codegen_llvm::entry::compile_codegen_unit;
 use tidec_codegen_llvm::lir::lir_ty::BasicTypesUtils;
 use tidec_codegen_ssa::traits::CodegenMethods;
+use tidec_lir::basic_blocks::BasicBlockData;
 use tidec_lir::lir::{
     CallConv, DefId, Linkage, LirBody, LirBodyKind, LirBodyMetadata, LirItemKind, LirTyCtx,
     LirUnit, LirUnitMetadata, UnnamedAddress, Visibility,
 };
-use tidec_lir::syntax::{LirTy, LocalData};
+use tidec_lir::syntax::{
+    ConstOperand, ConstScalar, ConstValue, LirTy, LocalData, Place, RValue, RawScalarValue,
+    Statement, Terminator, RETURN_LOCAL,
+};
 use tidec_utils::index_vec::IdxVec;
 use tracing::debug;
 
@@ -103,7 +108,23 @@ fn main2() {
                 mutable: false,
             }]),
             locals: IdxVec::new(),
-            basic_blocks: IdxVec::new(),
+            // basic_blocks: IdxVec::new(),
+            basic_blocks: IdxVec::from_raw(vec![BasicBlockData {
+                statements: vec![Statement::Assign(Box::new((
+                    Place {
+                        local: RETURN_LOCAL,
+                        projection: vec![],
+                    },
+                    RValue::Const(ConstOperand::Value(
+                        ConstValue::Scalar(ConstScalar::Value(RawScalarValue {
+                            data: 0u128,
+                            size: NonZero::new(4).unwrap(), // 4 bytes for i32
+                        })),
+                        LirTy::I32,
+                    )),
+                )))],
+                terminator: Terminator::Return,
+            }]),
         }]),
     };
 

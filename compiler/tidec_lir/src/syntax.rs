@@ -1,3 +1,5 @@
+use std::num::NonZero;
+
 use tidec_utils::idx::Idx;
 
 #[derive(Debug, Copy, Clone)]
@@ -68,8 +70,51 @@ pub enum Projection {
 #[derive(Eq, PartialEq)]
 pub struct Body(usize);
 
-pub(crate) enum RValue {
-    // TODO: Implement
+pub enum RValue {
+    /// A constant value.
+    /// TODO(bruzzone): This could be moved into a separate variant type, i.e., enum Operand { Const(..), Copy(..), Move(..) }
+    Const(ConstOperand),
+}
+
+#[derive(Debug)]
+// TODO(bruzzone): Add more variants for different constant types.
+pub enum ConstOperand {
+    /// A constant value that can be used in the LIR.
+    Value(ConstValue, LirTy),
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+/// Represents a constant value.
+// TODO(bruzzone): Add slice variant for strings, arrays, etc.
+// TODO(bruzzone): Add indirect variant. A value not representable by the other variants; needs to be stored in-memory.
+pub enum ConstValue {
+    /// A constant value that is a zero-sized type (ZST).
+    ZST,
+    /// A constant scalar value.
+    /// The consts with this variant have typically a layout that is compatible with scalar types, such as integers, floats, or pointers. That is, the backend representation of the constant is a scalar value.
+    Scalar(ConstScalar),
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+/// Represents a constant scalar value.
+// TODO(bruzzone): Add pointer variant for constants that are pointers to other constants or memory locations.
+pub enum ConstScalar {
+    /// Raw byte representation of the constant.
+    Value(RawScalarValue),
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+/// The raw bytes of a simple value.
+///
+/// This is a packed struct in order to allow this type to be optimally embedded in enums
+/// (like Scalar). That is, the size of this type is 17 bytes, and the alignment is 1 byte.
+#[repr(C, packed)]
+pub struct RawScalarValue {
+    /// The first `size` bytes of `data` are the value.
+    /// Do not try to read less or more bytes than that, this is UB.
+    /// The remaining bytes must be 0.
+    pub data: u128,
+    pub size: NonZero<u8>,
 }
 
 #[derive(Copy, Clone)]
@@ -82,7 +127,7 @@ pub struct LocalData {
 ///
 /// A statement is an operation that does not transfer control to another block.
 /// It is a part of the block's execution.
-pub(crate) enum Statement {
+pub enum Statement {
     Assign(Box<(Place, RValue)>),
 }
 
@@ -90,7 +135,7 @@ pub(crate) enum Statement {
 ///
 /// The terminator of a basic block is the last statement of the block.
 /// It is an operation that ends the block and transfers control to another block.
-pub(crate) enum Terminator {
+pub enum Terminator {
     /// Returns from the function.
     ///
     /// The semantics of return is, at least, assign the value in the current
