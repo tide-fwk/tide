@@ -1,5 +1,7 @@
 # The Tide Compiler Framework
 
+This repository follows the [standard-commit](https://github.com/standard-commits/standard-commits) message format. 
+
 ## Resources
 
 - Y. Zhang, CGO'25 - [GoFree: Reducing Garbage Collection via Compiler-Inserted Freeing][GoFree: Reducing Garbage Collection via Compiler-Inserted Freeing]
