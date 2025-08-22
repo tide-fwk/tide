@@ -8,7 +8,7 @@ use tracing::instrument;
 
 use crate::{
     lir::{self, LocalRef},
-    traits::{BuilderMethods, PreDefineCodegenMethods},
+    traits::{BuilderMethods, DefineCodegenMethods, PreDefineCodegenMethods},
 };
 
 pub struct FnCtx<'a, 'be, B: BuilderMethods<'a, 'be>> {
@@ -18,7 +18,7 @@ pub struct FnCtx<'a, 'be, B: BuilderMethods<'a, 'be>> {
     pub fn_abi: FnAbi,
 
     /// The body of the function in LIR.
-    pub lir_body: LirBody,
+    pub lir_body: &'a LirBody,
 
     /// The function value.
     /// This is the function that will be generated.
@@ -44,12 +44,20 @@ pub fn compile_lir_unit<'a, 'be, B: BuilderMethods<'a, 'be>>(
     ctx: &'a B::CodegenCtx,
     lir_unit: LirUnit,
 ) {
-    for lir_body in &lir_unit.body {
-        ctx.predefine_fn(&lir_body);
+    // Predefine the functions. That is, create the function declarations.
+    for lir_body in &lir_unit.bodies {
+        ctx.predefine_body(&lir_body.metadata, &lir_body.ret_and_args);
     }
 
-    // Create the functions
-    for lir_body in lir_unit.body {
-        lir::compile_lir_body::<B>(ctx, lir_body);
+    // Now that all functions are pre-defined, we can compile the bodies.
+    for lir_body in &lir_unit.bodies {
+        // It corresponds to:
+        // ```rust
+        // for &(mono_item, item_data) in &mono_items {
+        //     mono_item.define::<Builder<'_, '_, '_>>(&mut cx, cgu_name.as_str(), item_data);
+        // }
+        // ```
+        // idefine_body(lir_body);
+        // lir::define_lir_body::<B>(ctx, lir_body);
     }
 }

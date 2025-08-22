@@ -86,46 +86,53 @@ fn main2() {
 
     let lir_ctx = LirTyCtx::new(BackendKind::Llvm);
 
+    // Create a simple main function that returns 0.
+    // ```c
+    // int main() {
+    //   return 0;
+    // }
+    // ```
     let lir_body_metadata = LirBodyMetadata {
         def_id: DefId(0),
         name: "main".to_string(),
         kind: LirBodyKind::Item(LirItemKind::Function),
         inlined: false,
-        linkage: Linkage::LinkOnce, // Check the correct linkage
+        linkage: Linkage::External, // TODO(bruzzone): Check the correct linkage
         visibility: Visibility::Default,
         unnamed_address: UnnamedAddress::None,
         call_conv: CallConv::C,
     };
+    let lir_bodies = IdxVec::from_raw(vec![LirBody {
+        metadata: lir_body_metadata,
+        ret_and_args: IdxVec::from_raw(vec![LocalData {
+            ty: LirTy::I32,
+            mutable: false,
+        }]),
+        locals: IdxVec::new(),
+        basic_blocks: IdxVec::from_raw(vec![BasicBlockData {
+            statements: vec![Statement::Assign(Box::new((
+                Place {
+                    local: RETURN_LOCAL,
+                    projection: vec![],
+                },
+                RValue::Const(ConstOperand::Value(
+                    ConstValue::Scalar(ConstScalar::Value(RawScalarValue {
+                        data: 0u128,
+                        size: NonZero::new(4).unwrap(), // 4 bytes for i32
+                    })),
+                    LirTy::I32,
+                )),
+            )))],
+            terminator: Terminator::Return,
+        }]),
+    }]);
+    let lit_unit_metadata = LirUnitMetadata {
+        unit_name: "fcb_module".to_string(),
+    };
 
     let lir_unit: LirUnit = LirUnit {
-        metadata: LirUnitMetadata {
-            unit_name: "fcb_module".to_string(),
-        },
-        body: IdxVec::from_raw(vec![LirBody {
-            metadata: lir_body_metadata,
-            ret_and_args: IdxVec::from_raw(vec![LocalData {
-                ty: LirTy::I32,
-                mutable: false,
-            }]),
-            locals: IdxVec::new(),
-            // basic_blocks: IdxVec::new(),
-            basic_blocks: IdxVec::from_raw(vec![BasicBlockData {
-                statements: vec![Statement::Assign(Box::new((
-                    Place {
-                        local: RETURN_LOCAL,
-                        projection: vec![],
-                    },
-                    RValue::Const(ConstOperand::Value(
-                        ConstValue::Scalar(ConstScalar::Value(RawScalarValue {
-                            data: 0u128,
-                            size: NonZero::new(4).unwrap(), // 4 bytes for i32
-                        })),
-                        LirTy::I32,
-                    )),
-                )))],
-                terminator: Terminator::Return,
-            }]),
-        }]),
+        metadata: lit_unit_metadata,
+        bodies: lir_bodies,
     };
 
     compile_codegen_unit(lir_ctx, lir_unit);
@@ -133,14 +140,11 @@ fn main2() {
 
 /// Initialize the logger for the tidec project.
 fn init_tidec_logger() {
-    match tidec_log::Logger::init_logger(
-        tidec_log::LoggerConfig::from_prefix("TIDEC").unwrap(),
-        tidec_log::FallbackDefaultEnv::No,
-    ) {
-        Err(err) => {
-            eprintln!("Error initializing logger: {:?}", err);
-            std::process::exit(1);
-        }
-        _ => (),
+    if let Err(err) = tidec_log::Logger::init_logger(
+            tidec_log::LoggerConfig::from_prefix("TIDEC").unwrap(),
+            tidec_log::FallbackDefaultEnv::No,
+        ) {
+        eprintln!("Error initializing logger: {:?}", err);
+        std::process::exit(1);
     }
 }

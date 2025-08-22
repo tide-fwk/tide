@@ -267,7 +267,7 @@ pub struct LirUnit {
     pub metadata: LirUnitMetadata,
 
     /// The functions in the unit.
-    pub body: IdxVec<Body, LirBody>,
+    pub bodies: IdxVec<Body, LirBody>,
 }
 
 #[derive(Debug)]

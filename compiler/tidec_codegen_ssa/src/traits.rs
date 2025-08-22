@@ -3,9 +3,10 @@ use tidec_abi::{
     size_and_align::{Align, Size},
 };
 use tidec_lir::{
-    lir::{LirBody, LirTyCtx},
-    syntax::LirTy,
+    lir::{LirBody, LirBodyMetadata, LirTyCtx},
+    syntax::{LirTy, Local, LocalData},
 };
+use tidec_utils::index_vec::IdxVec;
 
 /// This trait is used to define the types used in the codegen backend.
 /// It is used to define the types used in the codegen backend.
@@ -42,13 +43,25 @@ pub trait CodegenBackend: Sized + CodegenBackendTypes {
     type Context;
 }
 
+/// The pre-definition methods for the codegen backend. It is used to pre-define functions.
+/// After pre-defining all functions, the bodies should be defined (see `DefineCodegenMethods`).
 pub trait PreDefineCodegenMethods: Sized + CodegenBackendTypes {
-    fn predefine_fn(&self, lir_body: &LirBody);
+    fn predefine_body(
+        &self,
+        lir_body_metadata: &LirBodyMetadata,
+        lir_body_ret_and_args: &IdxVec<Local, LocalData>,
+    );
+}
+
+/// The definition methods for the codegen backend. It is used to define (compile) function bodies.
+/// The definition should be done after pre-defining all functions (see `PreDefineCodegenMethods`).
+pub trait DefineCodegenMethods: Sized + CodegenBackendTypes {
+    fn define_body(&self, lir_body: &LirBody);
 }
 
 /// The codegen backend methods.
 pub trait CodegenMethods<'be>:
-    Sized + CodegenBackendTypes + CodegenBackend + PreDefineCodegenMethods
+    Sized + CodegenBackendTypes + CodegenBackend + PreDefineCodegenMethods + DefineCodegenMethods
 {
     /// Creates a new codegen context for the given LIR type context and module.
     fn new(lir_ty_ctx: LirTyCtx, context: &'be Self::Context, module: Self::Module) -> Self;
