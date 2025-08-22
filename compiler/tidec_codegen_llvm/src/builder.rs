@@ -1,7 +1,6 @@
 use std::ops::Deref;
 
-use inkwell::types::{BasicType, BasicTypeEnum};
-use inkwell::values::{AnyValueEnum, FunctionValue, IntValue};
+use inkwell::values::AnyValueEnum;
 use inkwell::{basic_block::BasicBlock, builder::Builder};
 use tidec_abi::layout::TyAndLayout;
 use tidec_abi::size_and_align::{Align, Size};
@@ -10,7 +9,6 @@ use tidec_lir::syntax::LirTy;
 use tracing::instrument;
 
 use crate::context::CodegenCtx;
-use crate::lir::lir_ty::BasicTypesUtils;
 
 /// A builder for generating LLVM IR code.
 ///

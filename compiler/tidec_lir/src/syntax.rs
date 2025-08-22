@@ -68,6 +68,7 @@ pub enum Projection {
 }
 
 #[derive(Eq, PartialEq)]
+/// A body identifier in the LIR. A body can be a function, a closure, etc.
 pub struct Body(usize);
 
 pub enum RValue {
@@ -113,6 +114,10 @@ pub struct RawScalarValue {
     /// The first `size` bytes of `data` are the value.
     /// Do not try to read less or more bytes than that, this is UB.
     /// The remaining bytes must be 0.
+    ///
+    /// This is needed to ensure that the value is well-defined when
+    /// interpreted as a larger type (e.g., when reading a 32-bit integer
+    /// from a 64-bit field).
     pub data: u128,
     pub size: NonZero<u8>,
 }
@@ -125,9 +130,11 @@ pub struct LocalData {
 
 /// A statement in a basic block.
 ///
-/// A statement is an operation that does not transfer control to another block.
-/// It is a part of the block's execution.
+/// A statement is an operation that does not transfer control to another block (i.e., it is not a
+/// terminator of a basic block). It is a part of the block's execution.
 pub enum Statement {
+    // An assignment statement. 
+    // TODO(bruzzone): Consider removing the Box.
     Assign(Box<(Place, RValue)>),
 }
 

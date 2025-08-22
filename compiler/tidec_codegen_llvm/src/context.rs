@@ -8,6 +8,8 @@ use inkwell::module::Module;
 use inkwell::targets::{TargetData, TargetTriple};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
 use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum};
+use tidec_codegen_ssa::lir;
+use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, instrument};
 
 use crate::lir::lir_body_metadata::{
@@ -15,21 +17,23 @@ use crate::lir::lir_body_metadata::{
 };
 use crate::lir::lir_ty::BasicTypesUtils;
 use tidec_codegen_ssa::traits::{
-    CodegenBackend, CodegenBackendTypes, CodegenMethods, PreDefineCodegenMethods,
+    CodegenBackend, CodegenBackendTypes, CodegenMethods, DefineCodegenMethods, PreDefineCodegenMethods
 };
-use tidec_lir::lir::{DefId, LirBody, LirTyCtx};
-use tidec_lir::syntax::RETURN_LOCAL;
+use tidec_lir::lir::{DefId, LirBody, LirBodyMetadata, LirTyCtx};
+use tidec_lir::syntax::{Local, LocalData, RETURN_LOCAL};
 
 // TODO: Add filelds from rustc/compiler/rustc_codegen_llvm/src/context.rs
 pub struct CodegenCtx<'ll> {
     // FIXME: Make this private
     pub ll_context: &'ll Context,
+    // FIXME: Make this private
     pub ll_module: Module<'ll>,
 
     /// The LIR type context.
     pub lir_ty_ctx: LirTyCtx,
 
     /// A map from DefId to the LLVM value (usually a function value).
+    // FIXME: Consider removing RefCell and using &mut
     pub instances: RefCell<HashMap<DefId, AnyValueEnum<'ll>>>,
 }
 
@@ -56,26 +60,28 @@ impl<'ll> CodegenBackend for CodegenCtx<'ll> {
 }
 
 impl PreDefineCodegenMethods for CodegenCtx<'_> {
-    fn predefine_fn(&self, lir_body: &LirBody) {
-        let name = lir_body.metadata.name.as_str();
+    fn predefine_body(
+        &self,
+        lir_fn_metadata: &LirBodyMetadata,
+        lir_fn_ret_and_args: &IdxVec<Local, LocalData>,
+    ) {
+        let name = lir_fn_metadata.name.as_str();
 
-        let ret_ty = lir_body.ret_and_args[RETURN_LOCAL]
-            .ty
-            .into_basic_type(&self);
-        let formal_param_tys = lir_body.ret_and_args.as_slice()[RETURN_LOCAL..]
+        let ret_ty = lir_fn_ret_and_args[RETURN_LOCAL].ty.into_basic_type(self);
+        let formal_param_tys = lir_fn_ret_and_args.as_slice()[RETURN_LOCAL..]
             .iter()
-            .map(|local_data| local_data.ty.into_basic_type_metadata(&self))
+            .map(|local_data| local_data.ty.into_basic_type_metadata(self))
             .collect::<Vec<_>>();
         let fn_ty = self.declare_fn(ret_ty, formal_param_tys.as_slice());
-        let linkage = lir_body.metadata.linkage.into_linkage();
-        let calling_convention = lir_body.metadata.call_conv.into_call_conv();
+        let linkage = lir_fn_metadata.linkage.into_linkage();
+        let calling_convention = lir_fn_metadata.call_conv.into_call_conv();
         let fn_val = self.ll_module.add_function(name, fn_ty, Some(linkage));
         fn_val.set_call_conventions(calling_convention);
 
         let fn_global_value = fn_val.as_global_value();
-        let visibility = lir_body.metadata.visibility.into_visibility();
+        let visibility = lir_fn_metadata.visibility.into_visibility();
         fn_global_value.set_visibility(visibility);
-        let unnamed_addr = lir_body.metadata.unnamed_address.into_unnamed_address();
+        let unnamed_addr = lir_fn_metadata.unnamed_address.into_unnamed_address();
         fn_global_value.set_unnamed_address(unnamed_addr);
 
         debug!(
@@ -83,10 +89,17 @@ impl PreDefineCodegenMethods for CodegenCtx<'_> {
             name, ret_ty, formal_param_tys, linkage, visibility, calling_convention, unnamed_addr
         );
 
-        self.instances.borrow_mut().insert(
-            lir_body.metadata.def_id,
-            AnyValueEnum::FunctionValue(fn_val),
-        );
+        self.instances
+            .borrow_mut()
+            .insert(lir_fn_metadata.def_id, AnyValueEnum::FunctionValue(fn_val));
+    }
+}
+
+impl DefineCodegenMethods for CodegenCtx<'_> {
+    /// For LLVM, we are able to reuse the generic implementation of `define_lir_body`
+    /// provided in the `lir` module, as it is generic over the `BuilderMethods` trait.
+    fn define_body(&self, lir_body: &LirBody) {
+        lir::define_lir_body::<'_, '_, crate::builder::CodegenBuilder<'_, '_>>(self, lir_body);
     }
 }
 
