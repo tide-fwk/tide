@@ -65,8 +65,20 @@ pub trait CodegenMethods<'be>:
 {
     /// Creates a new codegen context for the given LIR type context and module.
     fn new(lir_ty_ctx: LirTyCtx, context: &'be Self::Context, module: Self::Module) -> Self;
-    /// Returns the function value for the given LIR body.
-    fn get_fn(&self, lir_body: &LirBody) -> Self::Value;
+
+
+    /// Returns the function value for the given LIR body if it exists.
+    fn get_fn(
+        &self,
+        lir_body_metadata: &LirBodyMetadata,
+    ) -> Option<Self::Value>;
+
+    /// Returns the function value for the given LIR body or defines it if it does not exist.
+    fn get_or_define_fn(
+        &self,
+        lir_fn_metadata: &LirBodyMetadata,
+        lir_fn_ret_and_args: &IdxVec<Local, LocalData>,
+    ) -> Self::Value;
 }
 
 /// The builder methods for the codegen backend.
