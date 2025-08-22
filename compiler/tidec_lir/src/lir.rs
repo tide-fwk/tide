@@ -238,8 +238,11 @@ pub struct LirBodyMetadata {
     pub call_conv: CallConv,
 }
 
-/// The body of a function in LIR (Low-level Intermediate Representation).
-/// A body could be
+/// The body of a function in LIR. A body could be a function, a closure, a coroutine, etc.
+/// A body is expected to be monomorphized and specialized, that is, when generic parameters are 
+/// involved, each instantiation of the generics should have its own body.
+///
+/// Semantically, a body is a portion of code that constitutes a complete unit of execution.
 pub struct LirBody {
     /// The metadata of the function.
     // TODO(bruzzone): consider to detach the metadata from the body
