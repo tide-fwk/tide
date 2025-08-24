@@ -100,7 +100,16 @@ pub enum LocalRef<V> {
     PlaceRef(PlaceRef<V>),
 }
 
-pub fn define_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
+/// Define (compile) a LIR function body into the backend representation.
+// It corresponds to the:
+// ```rust
+// pub fn codegen_mir<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
+//     cx: &'a Bx::CodegenCx,
+//     instance: Instance<'tcx>,
+// ) { ... }
+// ```
+// function in rustc_codegen_ssa/src/mir/mod.rs
+pub fn codegen_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
     ctx: &'a B::CodegenCtx,
     lir_body: &'a LirBody,
 ) {

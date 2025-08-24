@@ -105,7 +105,7 @@ impl DefineCodegenMethods for CodegenCtx<'_> {
     /// For LLVM, we are able to reuse the generic implementation of `define_lir_body`
     /// provided in the `lir` module, as it is generic over the `BuilderMethods` trait.
     fn define_body(&self, lir_body: &LirBody) {
-        lir::define_lir_body::<'_, '_, crate::builder::CodegenBuilder<'_, '_>>(self, lir_body);
+        lir::codegen_lir_body::<'_, '_, crate::builder::CodegenBuilder<'_, '_>>(self, lir_body);
     }
 }
 
