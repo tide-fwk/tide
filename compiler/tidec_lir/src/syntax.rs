@@ -71,9 +71,10 @@ pub enum Projection {
 /// A body identifier in the LIR. A body can be a function, a closure, etc.
 pub struct Body(usize);
 
+// TODO(bruzzone): Add copy, move, reference, etc. variants.
 pub enum RValue {
     /// A constant value.
-    /// TODO(bruzzone): This could be moved into a separate variant type, i.e., enum Operand { Const(..), Copy(..), Move(..) }
+    // TODO(bruzzone): This could be moved into a separate variant type, i.e., enum Operand { Const(..), Copy(..), Move(..) }
     Const(ConstOperand),
 }
 
@@ -86,14 +87,64 @@ pub enum ConstOperand {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 /// Represents a constant value.
-// TODO(bruzzone): Add slice variant for strings, arrays, etc.
-// TODO(bruzzone): Add indirect variant. A value not representable by the other variants; needs to be stored in-memory.
+// TODO(bruzzone): Add indirect variant. A value not representable by the other variants; needs to be stored in-memory. 
+// TODO(bruzzone): Add slice variant for strings, arrays, etc. We could use the `Invariant` variant
+// to avoid this optimization.
 pub enum ConstValue {
     /// A constant value that is a zero-sized type (ZST).
     ZST,
     /// A constant scalar value.
     /// The consts with this variant have typically a layout that is compatible with scalar types, such as integers, floats, or pointers. That is, the backend representation of the constant is a scalar value.
     Scalar(ConstScalar),
+    // A value that cannot be represented directly by the other variants,
+    // and thus must be stored in memory.
+    //
+    // This is used for constants such as strings, slices, and large or
+    // aggregate values that do not fit into a single scalar or scalar pair.
+    //
+    // # Fields
+    //
+    // * [`alloc_id`] — An abstract identifier for the allocation backing
+    //   this value. Unlike a real machine pointer, an [`AllocId`] refers
+    //   to a constant allocation managed by CTFE/Miri. This indirection
+    //   ensures that when a "raw constant" (which is basically just an
+    //   `AllocId`) is turned into a [`ConstValue`] and later converted
+    //   back, the identity of the original allocation is preserved.
+    //
+    // * [`offset`] — A byte offset into the referenced allocation. This
+    //   allows an `Indirect` constant to represent a subslice or substring
+    //   within a larger allocation, rather than always starting at the
+    //   beginning. For example, a slice `&arr[3..]` would use the same
+    //   `AllocId` as `arr`, but with a nonzero offset.
+    //
+    // # Notes
+    //
+    // * This variant must **not** be used for scalars or zero-sized types
+    //   (those are handled by other variants).
+    // * It is perfectly valid, however, for `&str` or other slice types
+    //   to be represented as `Indirect`.
+    //
+    // # Example
+    //
+    // ```rust
+    // // For `const S: &str = "hi";`
+    // // tidec creates a global allocation containing the bytes [104, 105],
+    // // assigns it an `AllocId`, and represents `S` as:
+    //
+    // ConstValue::Indirect {
+    //     alloc_id: <id of "hi">,
+    //     offset: 0,
+    // }
+    // ```
+    // Indirect {
+    //     /// The backing memory of the value. This may cover more than just
+    //     /// the bytes of the current value, e.g. when pointing into a larger
+    //     /// `ConstValue`. The `AllocId` is an abstract identifier for
+    //     /// the allocation.
+    //     alloc_id: AllocId,
+    //     /// The byte offset into the referenced allocation.
+    //     offset: u64,
+    // },
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -102,23 +153,108 @@ pub enum ConstValue {
 pub enum ConstScalar {
     /// Raw byte representation of the constant.
     Value(RawScalarValue),
+
+    // Represents a pointer in the compiler’s abstract memory model.
+    //
+    // A `Pointer` is not a raw machine address. Instead, it encodes a
+    // reference into tide's internal allocation map, allowing  to track provenance, validity, 
+    // and offsets safely.
+    //
+    // # Fields
+    //
+    // * `provenance: AllocId` — Identifies the allocation this pointer points to.
+    //   This is an abstract ID that allows the compiler to distinguish between
+    //   different memory blocks, even if their raw addresses are identical.
+    //
+    // * `offset: u64` — The byte offset from the start of the allocation.  
+    //   Together with `provenance`, this determines the exact location
+    //   the pointer refers to.
+    //
+    // * `size: NonZeroU8` — The size of the pointer itself in bytes, typically
+    //   4 on 32-bit targets or 8 on 64-bit targets. Storing this ensures
+    //   that the pointer always knows its size, independent of target context.
+    //
+    // Note that `&str` and other slice types **should not** use this variant.
+    // Instead, they should be represented as `ConstValue::Indirect`, which
+    // can point to a sequence of bytes in memory.
+    //
+    // Do not interpret the internal `offset` or `provenance` as raw memory
+    // addresses; instead, use the accessor methods provided by `Scalar` and
+    // `ConstValue` for safe manipulation.
+    // Pointer {
+    //   /// The address this pointer points to.
+    //   provenance: AllocId,
+    //   /// The offset from the start of the allocation.
+    //   offset: u64,
+    //   /// The size of the pointer in bytes.
+    //   size: NonZeroU8,
+    // },
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-/// The raw bytes of a simple value.
+/// A compact representation of the raw bytes of a scalar value.
 ///
-/// This is a packed struct in order to allow this type to be optimally embedded in enums
-/// (like Scalar). That is, the size of this type is 17 bytes, and the alignment is 1 byte.
+/// This type is used in tide's value model (e.g. in [`Scalar`]) to represent
+/// primitive runtime values such as integers, floats, and pointers. Unlike
+/// general memory values, scalars always have a bounded size (`1–16` bytes),
+/// which makes it possible to store them in a single `u128` together with
+/// their size.
+///
+/// # Layout
+///
+/// This struct is marked as `#[repr(C, packed)]` so that its size is exactly
+/// 17 bytes:
+///
+/// - [`data`] contains up to 16 bytes of the value, stored in the *low-order*
+///   bytes of a `u128`.
+/// - [`size`] specifies how many of those low-order bytes are actually part
+///   of the value. The valid range is `1..=16`.
+///
+/// Packing is used to reduce padding so that this type can be embedded in
+/// enums (like [`Scalar`]) without wasting space. Without packing, this type
+/// would be padded up to 24 or 32 bytes, which would significantly increase
+/// memory usage across the compiler.
+///
+/// # Invariants
+///
+/// * `size` is always nonzero (`1..=16`).
+/// * Only the lowest `size` bytes of `data` are meaningful; the higher bytes
+///   must be zeroed.
+/// * Consumers must respect the declared size: reading more or fewer bytes
+///   than `size` is undefined behavior.
+///
+/// # Example
+///
+/// ```rust
+/// use std::num::NonZeroU8;
+///
+/// // A 1-byte scalar (u8 = 127)
+/// let small = RawScalarValue {
+///     data: 127,
+///     size: NonZeroU8::new(1).unwrap(),
+/// };
+///
+/// // An 8-byte scalar (u64 = 0x12345678)
+/// let big = RawScalarValue {
+///     data: 0x12345678,
+///     size: NonZeroU8::new(8).unwrap(),
+/// };
+/// ```
 #[repr(C, packed)]
 pub struct RawScalarValue {
-    /// The first `size` bytes of `data` are the value.
-    /// Do not try to read less or more bytes than that, this is UB.
-    /// The remaining bytes must be 0.
+    /// The first `size` bytes of this `u128` represent the scalar's raw value.
     ///
-    /// This is needed to ensure that the value is well-defined when
-    /// interpreted as a larger type (e.g., when reading a 32-bit integer
-    /// from a 64-bit field).
+    /// Only the low-order `size` bytes are valid. All remaining bytes must be
+    /// zero. For example, the `u32` value `0xDEADBEEF` would be stored as:
+    ///
+    /// ```
+    /// data = 0x00000000DEADBEEF
+    /// size = 4
+    /// ```
     pub data: u128,
+    /// The number of valid low-order bytes in [`data`].
+    ///
+    /// Always in the range `1..=16`. This cannot be zero.
     pub size: NonZero<u8>,
 }
 

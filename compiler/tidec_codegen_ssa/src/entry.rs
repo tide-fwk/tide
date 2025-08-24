@@ -7,7 +7,7 @@ use tidec_utils::index_vec::IdxVec;
 use tracing::instrument;
 
 use crate::{
-    lir::{self, LocalRef},
+    lir::LocalRef,
     traits::{BuilderMethods, DefineCodegenMethods, PreDefineCodegenMethods},
 };
 
@@ -57,7 +57,8 @@ pub fn compile_lir_unit<'a, 'be, B: BuilderMethods<'a, 'be>>(
         //     mono_item.define::<Builder<'_, '_, '_>>(&mut cx, cgu_name.as_str(), item_data);
         // }
         // ```
-        // idefine_body(lir_body);
+        // in rustc_codegen_llvm/src/base.rs
         // lir::define_lir_body::<B>(ctx, lir_body);
+        ctx.define_body(lir_body);
     }
 }
