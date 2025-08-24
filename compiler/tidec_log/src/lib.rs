@@ -25,7 +25,10 @@
 //!
 //! ```rust
 //! fn main() {
-//!     let _ = tidec_log::Logger::init_logger(tidec_log::LoggerConfig::from_prefix("TIDEC").unwrap());
+//!     let _ = tidec_log::Logger::init_logger(
+//!         tidec_log::LoggerConfig::from_prefix("TIDEC").unwrap(),
+//!         tidec_log::FallbackDefaultEnv::Yes
+//!     );
 //!     // Your test code using tidec_lir...
 //! }
 //! ```

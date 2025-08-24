@@ -1,6 +1,5 @@
 use inkwell::{
     types::{BasicMetadataTypeEnum, BasicTypeEnum},
-    values::IntValue,
 };
 use tidec_lir::syntax::LirTy;
 

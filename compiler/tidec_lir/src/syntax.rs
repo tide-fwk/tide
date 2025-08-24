@@ -41,6 +41,15 @@ pub const RETURN_LOCAL: Local = Local(0);
 /// `Place`s are used in LIR to abstract over memory references in a type-safe and
 /// structured manner, allowing the compiler to track aliasing, lifetimes,
 /// and optimize memory access.
+///
+/// For example,
+/// ```rust
+/// let mut x = 5;          // `x` is a place
+/// let y = &mut x;      // `y` is a place (pointer to x)
+/// struct S { a: i32 }
+/// let s = S { a: 10 };
+/// let _ = s.a;                 // `s.a` is a place
+/// ```
 pub struct Place {
     /// The base local variable from which this place starts.
     pub local: Local,
@@ -71,10 +80,32 @@ pub enum Projection {
 /// A body identifier in the LIR. A body can be a function, a closure, etc.
 pub struct Body(usize);
 
-// TODO(bruzzone): Add copy, move, reference, etc. variants.
+/// Represents a right-hand side (RValue) in LIR during code generation.
+///
+/// An `RValue` is something that can be **evaluated to produce a value**.  
+/// It corresponds to expressions on the right-hand side of assignments or
+/// the values returned by function calls in source code.
+///
+/// This enum is currently minimal and only supports **constant values** (`Const`).
+/// Other kinds of RValues, such as copies, moves, or references, may be added
+/// in the future.
+///
+/// For example,
+/// ```rust
+/// let x = 5;
+/// let y = x + 1;     // `x + 1` is an operand
+/// let z = 42;        // `42` is an operand
+/// let s = "hi";      // `"hi"` is an operand (a fat pointer and length)
+/// ```
 pub enum RValue {
     /// A constant value.
-    // TODO(bruzzone): This could be moved into a separate variant type, i.e., enum Operand { Const(..), Copy(..), Move(..) }
+    ///
+    /// Wraps a `ConstOperand`, which represents a constant known at compile-time.
+    /// This includes literals (`42`, `"hi"`), const functions, and other compile-time
+    /// evaluable values.
+    ///
+    /// TODO: Consider separating this into a dedicated `Operand` enum with variants like
+    /// `Const`, `Copy`, and `Move` for clarity and future extensibility.
     Const(ConstOperand),
 }
 
@@ -87,7 +118,7 @@ pub enum ConstOperand {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 /// Represents a constant value.
-// TODO(bruzzone): Add indirect variant. A value not representable by the other variants; needs to be stored in-memory. 
+// TODO(bruzzone): Add indirect variant. A value not representable by the other variants; needs to be stored in-memory.
 // TODO(bruzzone): Add slice variant for strings, arrays, etc. We could use the `Invariant` variant
 // to avoid this optimization.
 pub enum ConstValue {
@@ -106,7 +137,7 @@ pub enum ConstValue {
     //
     // * [`alloc_id`] — An abstract identifier for the allocation backing
     //   this value. Unlike a real machine pointer, an [`AllocId`] refers
-    //   to a constant allocation managed by CTFE/Miri. This indirection
+    //   to a constant allocation managed by the compiler. This indirection
     //   ensures that when a "raw constant" (which is basically just an
     //   `AllocId`) is turned into a [`ConstValue`] and later converted
     //   back, the identity of the original allocation is preserved.
@@ -153,11 +184,10 @@ pub enum ConstValue {
 pub enum ConstScalar {
     /// Raw byte representation of the constant.
     Value(RawScalarValue),
-
     // Represents a pointer in the compiler’s abstract memory model.
     //
     // A `Pointer` is not a raw machine address. Instead, it encodes a
-    // reference into tide's internal allocation map, allowing  to track provenance, validity, 
+    // reference into tide's internal allocation map, allowing  to track provenance, validity,
     // and offsets safely.
     //
     // # Fields
@@ -166,7 +196,7 @@ pub enum ConstScalar {
     //   This is an abstract ID that allows the compiler to distinguish between
     //   different memory blocks, even if their raw addresses are identical.
     //
-    // * `offset: u64` — The byte offset from the start of the allocation.  
+    // * `offset: u64` — The byte offset from the start of the allocation.
     //   Together with `provenance`, this determines the exact location
     //   the pointer refers to.
     //
@@ -227,6 +257,7 @@ pub enum ConstScalar {
 ///
 /// ```rust
 /// use std::num::NonZeroU8;
+/// use tidec_lir::syntax::RawScalarValue;
 ///
 /// // A 1-byte scalar (u8 = 127)
 /// let small = RawScalarValue {
@@ -247,8 +278,8 @@ pub struct RawScalarValue {
     /// Only the low-order `size` bytes are valid. All remaining bytes must be
     /// zero. For example, the `u32` value `0xDEADBEEF` would be stored as:
     ///
-    /// ```
-    /// data = 0x00000000DEADBEEF
+    /// ```ignore
+    /// data = 0x00000000DEADBEEF;
     /// size = 4
     /// ```
     pub data: u128,
@@ -269,7 +300,7 @@ pub struct LocalData {
 /// A statement is an operation that does not transfer control to another block (i.e., it is not a
 /// terminator of a basic block). It is a part of the block's execution.
 pub enum Statement {
-    // An assignment statement. 
+    // An assignment statement.
     // TODO(bruzzone): Consider removing the Box.
     Assign(Box<(Place, RValue)>),
 }
