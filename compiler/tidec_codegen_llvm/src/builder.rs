@@ -47,6 +47,10 @@ impl<'a, 'll> CodegenBuilder<'a, 'll> {
 impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
     type CodegenCtx = CodegenCtx<'ll>;
 
+    fn ctx(&self) -> &Self::CodegenCtx {
+        self.ctx
+    }
+
     /// Create a new CodeGenBuilder from a CodeGenCtx and a BasicBlock.
     /// The builder is positioned at the end of the BasicBlock.
     fn build(ctx: &'a CodegenCtx<'ll>, llbb: BasicBlock) -> Self {
@@ -96,13 +100,23 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
         fn_value: AnyValueEnum<'ll>,
         name: &str,
     ) -> BasicBlock<'ll> {
-        let fn_value = fn_value.into_function_value(); // TODO: use some thing
-                                                       // try_function_and_collect
-                                                       // the error
+        let fn_value = fn_value.into_function_value(); // TODO: use something try_function_and_collect the error
         ctx.ll_context.append_basic_block(fn_value, name)
     }
 
-    fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy> {
-        self.lir_ty_ctx.layout_of(ty)
+    /// Build a return instruction for the given builder.
+    /// If the return value is `None`, it means that the function returns `void`,
+    /// otherwise it returns the given value.
+    fn build_return(&mut self, ret_val: Option<AnyValueEnum<'ll>>) {
+        match ret_val {
+            None => {
+                self.ll_builder.build_return(None);
+            }
+            Some(val) => {
+                todo!("Handle return value");
+                // self.ll_builder.build_return(Some(&val));
+            }
+        }
     }
+
 }

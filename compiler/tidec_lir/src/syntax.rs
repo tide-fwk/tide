@@ -14,7 +14,7 @@ pub enum LirTy {
     Metadata,
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 /// A `Local` variable in the LIR.
 ///
 /// `Local` acts as an index into the set of local variables declared within a function or
@@ -27,6 +27,7 @@ pub enum LirTy {
 pub struct Local(usize);
 pub const RETURN_LOCAL: Local = Local(0);
 
+#[derive(Debug)]
 /// Represents a memory location (or "place") within LIR that can be used
 /// as the target of assignments or the source of loads.
 ///
@@ -59,6 +60,7 @@ pub struct Place {
     pub projection: Vec<Projection>,
 }
 
+#[derive(Debug)]
 /// Represents a single step in a `Place` projection path.
 ///
 /// A `Projection` allows navigation into more complex data structures
@@ -80,6 +82,7 @@ pub enum Projection {
 /// A body identifier in the LIR. A body can be a function, a closure, etc.
 pub struct Body(usize);
 
+#[derive(Debug)]
 /// Represents a right-hand side (RValue) in LIR during code generation.
 ///
 /// An `RValue` is something that can be **evaluated to produce a value**.  
@@ -289,12 +292,13 @@ pub struct RawScalarValue {
     pub size: NonZero<u8>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct LocalData {
     pub ty: LirTy,
     pub mutable: bool,
 }
 
+#[derive(Debug)]
 /// A statement in a basic block.
 ///
 /// A statement is an operation that does not transfer control to another block (i.e., it is not a
@@ -305,6 +309,7 @@ pub enum Statement {
     Assign(Box<(Place, RValue)>),
 }
 
+#[derive(Debug)]
 /// The terminator of a basic block.
 ///
 /// The terminator of a basic block is the last statement of the block.

@@ -1,5 +1,9 @@
+use crate::traits::{FnAbiOf, LayoutOf};
+use crate::{
+    entry::FnCtx,
+    traits::{BuilderMethods, CodegenMethods},
+};
 use tidec_abi::{
-    calling_convention::function::FnAbi,
     layout::TyAndLayout,
     size_and_align::{Align, Size},
 };
@@ -8,11 +12,7 @@ use tidec_lir::{
     syntax::{LirTy, Local, LocalData},
 };
 use tidec_utils::index_vec::IdxVec;
-
-use crate::{
-    entry::FnCtx,
-    traits::{BuilderMethods, CodegenMethods},
-};
+use tracing::debug;
 
 /// Represents a memory location or “place” during code generation.
 ///
@@ -39,6 +39,7 @@ pub struct PlaceRef<V> {
     place_ty_layout: TyAndLayout<LirTy>,
 }
 
+#[derive(Clone, Copy)]
 /// Represents a computed value or operand during code generation.
 ///
 /// `OperandRef` holds a value that can be used directly in computations,
@@ -56,14 +57,27 @@ pub struct OperandRef<V> {
     ty_layout: TyAndLayout<LirTy>,
 }
 
+impl<V> OperandRef<V> {
+    pub fn new_zst(ty_layout: TyAndLayout<LirTy>) -> Self {
+        OperandRef {
+            value: OperandVal::Zst,
+            ty_layout: ty_layout,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
 /// Backend representation of an operand value.
 ///
 /// This enum captures the different forms a value may take at the backend:
+/// - `Zst` — represents a zero-sized type (ZST) which has no data.
 /// - `Immediate(V)` — a single scalar value (integer, float, pointer, etc.)
 /// - `Pair(V, V)` — two scalars representing a compound value, such as a fat pointer (`&[T]` or `&str`)
 /// - `Ref(PlaceVal<V>)` — a reference to a memory location, allowing indirect access
 ///   to the value.
 pub enum OperandVal<V> {
+    /// A zero-sized type (ZST) has no data and thus no value.
+    Zst,
     /// A single immediate value.
     Immediate(V),
     /// Two values representing a compound operand.
@@ -87,6 +101,7 @@ impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceRef<V> {
     }
 }
 
+#[derive(Clone, Copy)]
 /// A backend value paired with alignment information, representing the underlying storage
 /// for a LIR place during codegen.
 ///
@@ -138,16 +153,16 @@ impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceVal<V> {
 /// variables declared within a function scope.
 pub enum LocalRef<V> {
     /// A local backed by a memory location with associated layout and alignment metadata.
-    /// 
+    ///
     /// From a source-level perspective, this corresponds to variables
-    /// that have a defined memory location, such as stack-allocated variables. 
+    /// that have a defined memory location, such as stack-allocated variables.
     /// See [`tided_lir::syntax::Place`] for more details.
     PlaceRef(PlaceRef<V>),
     /// A local represented as an operand value, which can be used directly in computations.
     ///
     /// From a source-level perspective, this corresponds to temporary values
     /// that do not have a dedicated memory location, such as intermediate
-    /// results in expressions. 
+    /// results in expressions.
     /// See [`tidec_lir::syntax::Operand`] for more details.
     OperandRef(OperandRef<V>),
 }
@@ -165,7 +180,7 @@ pub fn codegen_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
     ctx: &'a B::CodegenCtx,
     lir_body: &'a LirBody,
 ) {
-    let fn_abi = FnAbi {}; // TODO: ctx.get_fn_abi(&lir_body);
+    let fn_abi = ctx.fn_abi_of(ctx.lit_ty_ctx(), &lir_body.ret_and_args);
     let fn_value = ctx.get_or_define_fn(&lir_body.metadata, &lir_body.ret_and_args);
     let entry_bb = B::append_basic_block(&ctx, fn_value, "entry");
     let mut start_builder = B::build(ctx, entry_bb);
@@ -176,6 +191,7 @@ pub fn codegen_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
         fn_value,
         ctx,
         locals: IdxVec::new(),
+        cached_bbs: IdxVec::new(),
     };
 
     let mut allocate_locals =
@@ -183,7 +199,8 @@ pub fn codegen_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
             let mut local_allocas = IdxVec::new();
 
             for (local, local_data) in locals.iter_enumerated() {
-                let layout = start_builder.layout_of(local_data.ty);
+                debug!("Allocating local {:?} of type {:?}", local, local_data.ty);
+                let layout = start_builder.ctx().layout_of(local_data.ty);
                 let local_ref = LocalRef::PlaceRef(PlaceRef::alloca(&mut start_builder, layout));
                 local_allocas[local] = local_ref;
             }
@@ -196,12 +213,15 @@ pub fn codegen_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
     // Allocate the locals
     locals.append(&mut allocate_locals(&fn_ctx.lir_body.locals));
 
-    // Initialize the locals in the function context. Do not set they directly in the `FnCtx`.
-    // fn_ctx.locals = locals;
+    // Initialize the locals in the function context.
+    fn_ctx.locals = locals;
 
-    // Compile the basic blocks
-    // for bb in lir_body.basic_blocks.iter() {
-    // let llbb = LLVMBasicBlock::from(bb);
-    // let builder = CodeGenBuilder::new(ctx);
-    // }
+    // We can safely drop the builder now, as we will create new builders for each basic block.
+    drop(start_builder);
+
+    // Codegen each basic block in the function body.
+    for bb in lir_body.basic_blocks.indices() {
+        fn_ctx.codegen_basic_block(bb);
+        // TODO(bruzzone): consider to remove unreached blocks here
+    }
 }

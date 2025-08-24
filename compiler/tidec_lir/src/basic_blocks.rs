@@ -2,9 +2,10 @@ use tidec_utils::idx::Idx;
 
 use crate::syntax::{Statement, Terminator};
 
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct BasicBlock(usize);
 
+#[derive(Debug)]
 /// The data of a basic block.
 ///
 /// A basic block is a sequence of statements that ends with a terminator.

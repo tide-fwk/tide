@@ -1,6 +1,5 @@
 use crate::{
-    basic_blocks::{BasicBlock, BasicBlockData},
-    syntax::{Body, LirTy, Local, LocalData},
+    basic_blocks::{BasicBlock, BasicBlockData}, layout_ctx::LayoutCtx, syntax::{Body, LirTy, Local, LocalData}
 };
 use tidec_abi::{
     layout::TyAndLayout,
@@ -294,8 +293,7 @@ impl LirTyCtx {
     }
 
     pub fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy> {
-        // let data_layout = self.target.data_layout;
-
-        unimplemented!();
+        let layout_ctx = LayoutCtx::new(&self);
+        layout_ctx.compute_layout(ty)
     }
 }

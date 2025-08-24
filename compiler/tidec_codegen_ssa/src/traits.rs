@@ -1,4 +1,5 @@
 use tidec_abi::{
+    calling_convention::function::FnAbi,
     layout::TyAndLayout,
     size_and_align::{Align, Size},
 };
@@ -7,6 +8,22 @@ use tidec_lir::{
     syntax::{LirTy, Local, LocalData},
 };
 use tidec_utils::index_vec::IdxVec;
+
+/// This trait is used to get the layout of a type.
+/// It is used to get the layout of a type in the codegen backend.
+pub trait LayoutOf {
+    /// Returns the layout of the given type.
+    fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy>;
+}
+
+pub trait FnAbiOf {
+    /// Returns the function ABI for the given return type and argument types.
+    fn fn_abi_of(
+        &self,
+        lit_ty_ctx: &LirTyCtx,
+        ret_and_args: &IdxVec<Local, LocalData>,
+    ) -> FnAbi<LirTy>;
+}
 
 /// This trait is used to define the types used in the codegen backend.
 /// It is used to define the types used in the codegen backend.
@@ -61,17 +78,22 @@ pub trait DefineCodegenMethods: Sized + CodegenBackendTypes {
 
 /// The codegen backend methods.
 pub trait CodegenMethods<'be>:
-    Sized + CodegenBackendTypes + CodegenBackend + PreDefineCodegenMethods + DefineCodegenMethods
+    Sized
+    + LayoutOf
+    + FnAbiOf
+    + CodegenBackendTypes
+    + CodegenBackend
+    + PreDefineCodegenMethods
+    + DefineCodegenMethods
 {
     /// Creates a new codegen context for the given LIR type context and module.
     fn new(lir_ty_ctx: LirTyCtx, context: &'be Self::Context, module: Self::Module) -> Self;
 
+    /// Return the LIR type context associated with this codegen context.
+    fn lit_ty_ctx(&self) -> &LirTyCtx;
 
     /// Returns the function value for the given LIR body if it exists.
-    fn get_fn(
-        &self,
-        lir_body_metadata: &LirBodyMetadata,
-    ) -> Option<Self::Value>;
+    fn get_fn(&self, lir_body_metadata: &LirBodyMetadata) -> Option<Self::Value>;
 
     /// Returns the function value for the given LIR body or defines it if it does not exist.
     fn get_or_define_fn(
@@ -96,15 +118,33 @@ pub trait BuilderMethods<'a, 'be>: Sized + CodegenBackendTypes {
             MetadataValue = Self::MetadataValue,
         >;
 
+    /// Returns a reference to the codegen context.
+    fn ctx(&self) -> &Self::CodegenCtx;
+
+    /// Allocate memory for a value of the given size and alignment.
+    /// For instance, in LLVM this corresponds to the `alloca` instruction.
     fn alloca(&self, size: Size, align: Align) -> Self::Value;
 
+    /// Create a new builder for the given codegen context and basic block.
+    /// The builder is positioned at the end of the basic block.
     fn build(ctx: &'a Self::CodegenCtx, bb: Self::BasicBlock) -> Self;
 
+    /// Append a new basic block to the given function value with the given name.
+    /// The name can be empty, in which case a unique name will be generated.
+    /// The function value is assumed to be valid and belong to the same context as the codegen context.
     fn append_basic_block(
         ctx: &'a Self::CodegenCtx,
         fn_value: Self::Value,
         name: &str,
     ) -> Self::BasicBlock;
 
-    fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy>;
+    /// Build a return instruction for the given builder.
+    /// If the return value is `None`, it means that the function returns `void`,
+    /// the return value is ignored, or it is `Indirect` (see `PassMode` in `tidec_abi`).
+    /// For instance, it could be `Indirect` if the return value is a large struct:
+    /// ```rust
+    /// struct LargeStruct { a: [u8; 1024] }
+    /// fn foo() -> LargeStruct { ... }
+    /// ```
+    fn build_return(&mut self, return_value: Option<Self::Value>);
 }
