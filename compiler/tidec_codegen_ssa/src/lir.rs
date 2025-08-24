@@ -14,24 +14,62 @@ use crate::{
     traits::{BuilderMethods, CodegenMethods},
 };
 
-/// A reference to a place in memory during code generation, used in LIR to backend lowering.
+/// Represents a memory location or “place” during code generation.
 ///
-/// `PlaceRef` encapsulates both the backend representation of the place (e.g., a value)
-/// and its type layout information. This is used to generate correct code when accessing, modifying,
-/// or analyzing memory locations.
+/// `PlaceRef` encapsulates both the **backend-level representation** of a place
+/// (how the value is passed, stored, or manipulated at the ABI/codegen level)
+/// and its **type/layout information**, which is needed to generate correct
+/// memory accesses, handle aggregates, and respect alignment and size requirements.
 ///
-/// The type parameter `V` represents the backend-specific value, such as an LLVM value or a
-/// machine register in custom backends.
+/// The type parameter `V` represents a backend-specific value, such as a machine
+/// register, LLVM value, or other intermediate representation used by the backend.
 pub struct PlaceRef<V> {
-    /// The backend value and alignment for this place.
+    /// The backend value of this place.
     ///
-    /// This typically holds a pointer or immediate value, along with alignment metadata.
+    /// This corresponds to the actual value used by the backend for code generation,
+    /// e.g., a register, stack slot, or pointer. Its form is determined by the
+    /// type’s `backend_repr` from the layout, which describes how the type is
+    /// passed or stored (scalar, scalar pair, memory, etc.).
     place_value: PlaceVal<V>,
-    /// The type and layout of the place, used for determining ABI, size, and alignment.
+    /// The type and layout of this place.
     ///
-    /// This is essential for correct code generation, especially for aggregates, unsized types,
+    /// Provides size, alignment, and ABI information, which is essential for
+    /// correct code generation, especially for aggregates, unsized types,
     /// or types with nontrivial ABI requirements.
     place_ty_layout: TyAndLayout<LirTy>,
+}
+
+/// Represents a computed value or operand during code generation.
+///
+/// `OperandRef` holds a value that can be used directly in computations,
+/// without necessarily having a memory location. This can include immediate
+/// scalars, scalar pairs (e.g., fat pointers), or references to memory locations.
+pub struct OperandRef<V> {
+    /// The actual value of the operand in the backend.
+    ///
+    /// May be an immediate scalar, a pair of scalars, or a reference to a `PlaceVal`.
+    value: OperandVal<V>,
+    /// The type and layout of the operand.
+    ///
+    /// Provides size, alignment, and ABI information needed for correct
+    /// code generation and backend handling.
+    ty_layout: TyAndLayout<LirTy>,
+}
+
+/// Backend representation of an operand value.
+///
+/// This enum captures the different forms a value may take at the backend:
+/// - `Immediate(V)` — a single scalar value (integer, float, pointer, etc.)
+/// - `Pair(V, V)` — two scalars representing a compound value, such as a fat pointer (`&[T]` or `&str`)
+/// - `Ref(PlaceVal<V>)` — a reference to a memory location, allowing indirect access
+///   to the value.
+pub enum OperandVal<V> {
+    /// A single immediate value.
+    Immediate(V),
+    /// Two values representing a compound operand.
+    Pair(V, V),
+    /// A reference to a place in memory.
+    Ref(PlaceVal<V>),
 }
 
 impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceRef<V> {
@@ -95,9 +133,23 @@ impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceVal<V> {
 /// `LocalRef` is a wrapper around `PlaceRef`, which provides
 /// a way to refer to local variables in a type-safe manner
 /// while also carrying the necessary metadata for code generation.
+///
+/// From a source-level perspective, locals can be thought of as
+/// variables declared within a function scope.
 pub enum LocalRef<V> {
     /// A local backed by a memory location with associated layout and alignment metadata.
+    /// 
+    /// From a source-level perspective, this corresponds to variables
+    /// that have a defined memory location, such as stack-allocated variables. 
+    /// See [`tided_lir::syntax::Place`] for more details.
     PlaceRef(PlaceRef<V>),
+    /// A local represented as an operand value, which can be used directly in computations.
+    ///
+    /// From a source-level perspective, this corresponds to temporary values
+    /// that do not have a dedicated memory location, such as intermediate
+    /// results in expressions. 
+    /// See [`tidec_lir::syntax::Operand`] for more details.
+    OperandRef(OperandRef<V>),
 }
 
 /// Define (compile) a LIR function body into the backend representation.

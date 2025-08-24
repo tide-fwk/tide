@@ -39,7 +39,7 @@ pub struct Layout {
 
 /// Represents how values are passed to the backend during code generation.
 ///
-/// This is *not* the same as the platform's ABI (Application Binary Interface).
+/// This is *not* the same as the platform's ABI.
 /// While the platform ABI may influence these choices, this enum primarily describes
 /// the *syntactic form* used when emitting code — for example, whether a value is
 /// passed as a scalar (like an integer or float) or as a memory reference.
@@ -55,7 +55,11 @@ pub enum BackendRepr {
     Scalar(Primitive),
     /// Scalar pair, which is a pair of scalars. It is often used for
     /// returning multiple values from a function. This allows the backend to
-    /// optimize the representation of multiple return values
+    /// optimize the representation of multiple return values. Additionally,
+    /// it is used for "fat pointers", which are pointers that include extra
+    /// metadata, such as a pointer to a slice or a trait object. For example,
+    /// a slice `&str` is represented as a pair of a pointer to the data
+    /// and a length.
     ScalarPair(Primitive, Primitive),
     /// The value is represented as a memory reference, such as a pointer or
     /// a reference to a struct or array.
