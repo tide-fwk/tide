@@ -8,6 +8,9 @@ use inkwell::module::Module;
 use inkwell::targets::{TargetData, TargetTriple};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
 use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum};
+use tidec_abi::calling_convention::function::{ArgAbi, FnAbi, PassMode};
+use tidec_abi::layout::{BackendRepr, TyAndLayout};
+use tidec_lir::layout_ctx::LayoutCtx;
 use tidec_codegen_ssa::lir;
 use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, instrument};
@@ -17,11 +20,10 @@ use crate::lir::lir_body_metadata::{
 };
 use crate::lir::lir_ty::BasicTypesUtils;
 use tidec_codegen_ssa::traits::{
-    CodegenBackend, CodegenBackendTypes, CodegenMethods, DefineCodegenMethods,
-    PreDefineCodegenMethods,
+    CodegenBackend, CodegenBackendTypes, CodegenMethods, DefineCodegenMethods, FnAbiOf, LayoutOf, PreDefineCodegenMethods
 };
 use tidec_lir::lir::{DefId, LirBody, LirBodyMetadata, LirTyCtx};
-use tidec_lir::syntax::{Local, LocalData, RETURN_LOCAL};
+use tidec_lir::syntax::{LirTy, Local, LocalData, RETURN_LOCAL};
 
 // TODO: Add filelds from rustc/compiler/rustc_codegen_llvm/src/context.rs
 pub struct CodegenCtx<'ll> {
@@ -109,6 +111,41 @@ impl DefineCodegenMethods for CodegenCtx<'_> {
     }
 }
 
+impl LayoutOf for CodegenCtx<'_> {
+    fn layout_of(&self, lir_ty: LirTy) -> TyAndLayout<LirTy> {
+        self.lir_ty_ctx.layout_of(lir_ty)
+    }
+}
+
+impl FnAbiOf for CodegenCtx<'_> {
+    #[instrument(level = "debug", skip(self, lir_ty_ctx))]
+    fn fn_abi_of(&self, 
+        lir_ty_ctx: &LirTyCtx,
+        lir_ret_and_args: &IdxVec<Local, LocalData>) -> FnAbi<LirTy> {
+        let layout_ctx = LayoutCtx::new(lir_ty_ctx);
+        let argument_of = |ty: LirTy| -> ArgAbi<LirTy> {
+            let layout = layout_ctx.compute_layout(ty);
+            let pass_mode = match layout.backend_repr {
+                BackendRepr::Scalar(_) => PassMode::Direct,
+                BackendRepr::Memory => PassMode::Indirect,
+            };
+            ArgAbi { layout, mode: pass_mode }
+        };
+
+        let ret_arg_abi = argument_of(lir_ret_and_args[RETURN_LOCAL].ty);
+        let arg_abis = lir_ret_and_args
+            .as_slice()[RETURN_LOCAL..]
+            .iter()
+            .map(|local_data| argument_of(local_data.ty))
+            .collect();
+
+        FnAbi {
+            ret: ret_arg_abi,
+            args: arg_abis,
+        }
+    }
+}
+
 impl<'ll> CodegenCtx<'ll> {
     fn declare_fn(
         &self,
@@ -150,6 +187,10 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
             lir_ty_ctx,
             instances: RefCell::new(HashMap::new()),
         }
+    }
+
+    fn lit_ty_ctx(&self) -> &LirTyCtx {
+        &self.lir_ty_ctx
     }
 
     fn get_fn(&self, lir_body_metadata: &LirBodyMetadata) -> Option<AnyValueEnum<'ll>> {

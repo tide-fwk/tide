@@ -390,7 +390,7 @@ impl TargetTriple {
 }
 
 // TODO: Other address spaces.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum AddressSpace {
     /// The default address space.
     DATA = 0,

@@ -24,7 +24,7 @@ use std::{
 ///
 /// While it's possible to use `u32` or `usize` directly for `I`,
 /// you almost certainly want to use a newtype for the index type.
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct IdxVec<I: Idx, T> {
     _marker: PhantomData<I>,
     pub raw: Vec<T>,

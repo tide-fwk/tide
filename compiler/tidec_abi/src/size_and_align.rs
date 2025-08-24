@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 /// Specifies both the ABI-required and preferred alignment for a type, in bytes.
 ///
 /// Both `abi` and `pref` are powers of two. The ABI alignment (`abi`) is the minimum

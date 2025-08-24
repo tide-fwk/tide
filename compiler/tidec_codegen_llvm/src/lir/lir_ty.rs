@@ -1,6 +1,4 @@
-use inkwell::{
-    types::{BasicMetadataTypeEnum, BasicTypeEnum},
-};
+use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
 use tidec_lir::syntax::LirTy;
 
 use crate::context::CodegenCtx;

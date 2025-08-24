@@ -3,6 +3,7 @@ use crate::{
     target::AddressSpace,
 };
 
+#[derive(Clone, Copy)]
 /// Represents a type along with its size and alignment information.
 ///
 /// This is commonly used during codegen and layout computation to reason about
@@ -16,6 +17,15 @@ pub struct TyAndLayout<T> {
     pub layout: Layout,
 }
 
+impl<T> std::ops::Deref for TyAndLayout<T> {
+    type Target = Layout;
+
+    fn deref(&self) -> &Self::Target {
+        &self.layout
+    }
+}
+
+#[derive(Clone, Copy)]
 /// Represents the layout of a type in the target architecture.
 ///
 /// This struct contains the size, alignment, and backend representation
@@ -37,6 +47,17 @@ pub struct Layout {
     pub backend_repr: BackendRepr,
 }
 
+impl Layout {
+    /// Returns true if the layout represents a zero-sized type.
+    pub fn is_zst(&self) -> bool {
+        match self.backend_repr {
+            BackendRepr::Scalar(_) /* | BackendRepr::ScalarPair(_, _) */ => false,
+            BackendRepr::Memory => self.size.bytes() == 0,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
 /// Represents how values are passed to the backend during code generation.
 ///
 /// This is *not* the same as the platform's ABI.
@@ -53,19 +74,22 @@ pub struct Layout {
 pub enum BackendRepr {
     /// The value is represented as a scalar, such as an integer or float.
     Scalar(Primitive),
-    /// Scalar pair, which is a pair of scalars. It is often used for
-    /// returning multiple values from a function. This allows the backend to
-    /// optimize the representation of multiple return values. Additionally,
-    /// it is used for "fat pointers", which are pointers that include extra
-    /// metadata, such as a pointer to a slice or a trait object. For example,
-    /// a slice `&str` is represented as a pair of a pointer to the data
-    /// and a length.
-    ScalarPair(Primitive, Primitive),
     /// The value is represented as a memory reference, such as a pointer or
     /// a reference to a struct or array.
     Memory,
+
+    // Scalar pair, which is a pair of scalars. It is often used for
+    // returning multiple values from a function. This allows the backend to
+    // optimize the representation of multiple return values. Additionally,
+    // it is used for "fat pointers", which are pointers that include extra
+    // metadata, such as a pointer to a slice or a trait object. For example,
+    // a slice `&str` is represented as a pair of a pointer to the data
+    // and a length.
+    // ScalarPair(Primitive, Primitive),
 }
 
+#[derive(Clone, Copy)]
+/// Represents primitive types that can be used in the backend representation.
 pub enum Primitive {
     /// A signed integer type.
     I8,
@@ -87,16 +111,4 @@ pub enum Primitive {
     /// A pointer type.
     Pointer(AddressSpace),
 }
-
-pub struct LayoutCtx {}
-
-impl LayoutCtx {
-    pub fn new() -> Self {
-        LayoutCtx {}
-    }
-
-    /// Computes the layout for a given type.
-    pub fn compute_layout<T>(&self, ty: T) -> TyAndLayout<T> {
-        todo!()
-    }
-}
+ 
