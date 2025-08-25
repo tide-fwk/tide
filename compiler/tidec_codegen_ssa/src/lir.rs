@@ -14,6 +14,7 @@ use tidec_lir::{
 use tidec_utils::index_vec::IdxVec;
 use tracing::debug;
 
+#[derive(Debug)]
 /// Represents a memory location or “place” during code generation.
 ///
 /// `PlaceRef` encapsulates both the **backend-level representation** of a place
@@ -23,20 +24,20 @@ use tracing::debug;
 ///
 /// The type parameter `V` represents a backend-specific value, such as a machine
 /// register, LLVM value, or other intermediate representation used by the backend.
-pub struct PlaceRef<V> {
+pub struct PlaceRef<V: std::fmt::Debug> {
     /// The backend value of this place.
     ///
     /// This corresponds to the actual value used by the backend for code generation,
     /// e.g., a register, stack slot, or pointer. Its form is determined by the
     /// type’s `backend_repr` from the layout, which describes how the type is
     /// passed or stored (scalar, scalar pair, memory, etc.).
-    place_value: PlaceVal<V>,
+    pub place_val: PlaceVal<V>,
     /// The type and layout of this place.
     ///
     /// Provides size, alignment, and ABI information, which is essential for
     /// correct code generation, especially for aggregates, unsized types,
     /// or types with nontrivial ABI requirements.
-    place_ty_layout: TyAndLayout<LirTy>,
+    pub ty_layout: TyAndLayout<LirTy>,
 }
 
 #[derive(Clone, Copy)]
@@ -45,11 +46,11 @@ pub struct PlaceRef<V> {
 /// `OperandRef` holds a value that can be used directly in computations,
 /// without necessarily having a memory location. This can include immediate
 /// scalars, scalar pairs (e.g., fat pointers), or references to memory locations.
-pub struct OperandRef<V> {
+pub struct OperandRef<V: std::fmt::Debug> {
     /// The actual value of the operand in the backend.
     ///
     /// May be an immediate scalar, a pair of scalars, or a reference to a `PlaceVal`.
-    value: OperandVal<V>,
+    pub operand_val: OperandVal<V>,
     /// The type and layout of the operand.
     ///
     /// Provides size, alignment, and ABI information needed for correct
@@ -57,16 +58,23 @@ pub struct OperandRef<V> {
     ty_layout: TyAndLayout<LirTy>,
 }
 
-impl<V> OperandRef<V> {
+impl<V: std::fmt::Debug> OperandRef<V> {
     pub fn new_zst(ty_layout: TyAndLayout<LirTy>) -> Self {
         OperandRef {
-            value: OperandVal::Zst,
-            ty_layout: ty_layout,
+            operand_val: OperandVal::Zst,
+            ty_layout
+        }
+    }
+
+    pub fn new_immediate(value: V, ty_layout: TyAndLayout<LirTy>) -> Self {
+        OperandRef {
+            operand_val: OperandVal::Immediate(value),
+            ty_layout,
         }
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 /// Backend representation of an operand value.
 ///
 /// This enum captures the different forms a value may take at the backend:
@@ -75,7 +83,7 @@ impl<V> OperandRef<V> {
 /// - `Pair(V, V)` — two scalars representing a compound value, such as a fat pointer (`&[T]` or `&str`)
 /// - `Ref(PlaceVal<V>)` — a reference to a memory location, allowing indirect access
 ///   to the value.
-pub enum OperandVal<V> {
+pub enum OperandVal<V: std::fmt::Debug> {
     /// A zero-sized type (ZST) has no data and thus no value.
     Zst,
     /// A single immediate value.
@@ -101,7 +109,7 @@ impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceRef<V> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 /// A backend value paired with alignment information, representing the underlying storage
 /// for a LIR place during codegen.
 ///
@@ -111,14 +119,14 @@ impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceRef<V> {
 /// This is tipically used in conjunction with [`PlaceRef`].
 ///
 /// The type parameter `V` is the backend-specific representation of values.
-pub struct PlaceVal<V> {
+pub struct PlaceVal<V: std::fmt::Debug> {
     /// The actual backend value for this place (e.g., pointer, immediate, etc.).
-    value: V,
+    pub value: V,
     /// Alignment of the value in memory.
     ///
     /// This is used to ensure proper access semantics and may affect how code is emitted,
     /// especially for aligned loads/stores and optimizations.
-    align: Align,
+    pub align: Align,
 }
 impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceVal<V> {
     pub fn alloca<B: BuilderMethods<'a, 'be, Value = V>>(
@@ -133,8 +141,8 @@ impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceVal<V> {
     pub fn with_layout(self, layout: TyAndLayout<LirTy>) -> PlaceRef<V> {
         // TODO: Assert that the type is not unsized (through `TyAndLayout`).
         PlaceRef {
-            place_value: self,
-            place_ty_layout: layout,
+            place_val: self,
+            ty_layout: layout,
         }
     }
 }
@@ -151,7 +159,7 @@ impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceVal<V> {
 ///
 /// From a source-level perspective, locals can be thought of as
 /// variables declared within a function scope.
-pub enum LocalRef<V> {
+pub enum LocalRef<V: std::fmt::Debug> {
     /// A local backed by a memory location with associated layout and alignment metadata.
     ///
     /// From a source-level perspective, this corresponds to variables
