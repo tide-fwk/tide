@@ -9,6 +9,8 @@ use tidec_lir::{
 };
 use tidec_utils::index_vec::IdxVec;
 
+use crate::lir::{OperandRef, PlaceRef};
+
 /// This trait is used to get the layout of a type.
 /// It is used to get the layout of a type in the codegen backend.
 pub trait LayoutOf {
@@ -147,4 +149,14 @@ pub trait BuilderMethods<'a, 'be>: Sized + CodegenBackendTypes {
     /// fn foo() -> LargeStruct { ... }
     /// ```
     fn build_return(&mut self, return_value: Option<Self::Value>);
+
+    /// Load an operand from the given place reference.
+    /// This is used to load a value from memory.
+    fn load_operand(&mut self, place_ref: &PlaceRef<Self::Value>) -> OperandRef<Self::Value>;
+
+    /// Build a store instruction to store the given value to the given place reference.
+    /// This is used to store a value to memory.
+    /// The value is assumed to be of the same type as the place reference.
+    /// The alignment is the alignment of the place reference.
+    fn build_load(&mut self, ty: Self::Type, ptr: Self::Value, align: Align) -> Self::Value;
 }

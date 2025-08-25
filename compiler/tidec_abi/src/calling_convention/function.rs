@@ -1,4 +1,4 @@
-use crate::layout::TyAndLayout;
+use crate::layout::{self, Layout, TyAndLayout};
 
 /// Describes the full application binary interface (ABI) of a function.
 ///
@@ -48,6 +48,12 @@ pub struct ArgAbi<T> {
     pub mode: PassMode,
 }
 
+impl<T> ArgAbi<T> {
+    pub fn new(layout: TyAndLayout<T>, mode: PassMode) -> Self {
+        ArgAbi { layout, mode }
+    }
+}
+
 /// The possible ways in which an argument or return value
 /// can be passed across the ABI boundary.
 //
@@ -64,7 +70,6 @@ pub struct ArgAbi<T> {
 pub enum PassMode {
     /// The argument is ignored (e.g., a zero-sized type).
     Ignore,
-
     /// The argument is passed directly, typically in registers or
     /// as a plain immediate value.
     ///
@@ -74,7 +79,6 @@ pub enum PassMode {
     // TODO(bruzzone): Consider adding more details to Direct, such as:
     // - `attrs`: Attributes like `signext`, `zeroext`, etc.
     Direct,
-
     /// The argument is passed indirectly, via a hidden pointer
     /// to memory allocated by the caller or callee.
     ///
@@ -93,4 +97,3 @@ pub enum PassMode {
     // - `on_stack`: Whether the argument must be passed on the stack.
     Indirect,
 }
-

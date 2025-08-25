@@ -6,6 +6,7 @@ pub struct LayoutCtx<'a> {
 }
 
 impl<'a> LayoutCtx<'a> {
+    // It accepts the `LirTyCtx` because it contains the `TargetDataLayout`.
     pub fn new(lir_ty_ctx: &'a LirTyCtx) -> Self {
         LayoutCtx { lir_ty_ctx }
     }

@@ -1,7 +1,9 @@
-use crate::traits::LayoutOf;
+use crate::{lir::OperandVal, traits::LayoutOf};
 use tidec_abi::calling_convention::function::{FnAbi, PassMode};
 use tidec_lir::{
-    basic_blocks::{BasicBlock, BasicBlockData}, lir::{LirBody, LirUnit}, syntax::{LirTy, Local, LocalData, Statement, Terminator, RETURN_LOCAL}
+    basic_blocks::{BasicBlock, BasicBlockData},
+    lir::{LirBody, LirUnit},
+    syntax::{LirTy, Local, RETURN_LOCAL, Statement, Terminator},
 };
 use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, instrument};
@@ -80,9 +82,7 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
     fn codegen_terminator(&mut self, builder: &mut B, term: &Terminator) {
         debug!("Codegen terminator: {:?}", term);
         match term {
-            Terminator::Return => {
-                self.codegen_return_terminator(builder)
-            }
+            Terminator::Return => self.codegen_return_terminator(builder),
         }
     }
 
@@ -97,15 +97,21 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
             }
             PassMode::Direct => {
                 let operand_ref = self.codegen_operand(builder, RETURN_LOCAL);
+                match operand_ref.operand_val {
+                    OperandVal::Ref(_) => todo!("Handle return by reference — load from place"),
+                    _ => todo!()
+                }
 
             }
         };
 
-        todo!() 
+        todo!()
     }
 
     fn codegen_operand(&mut self, builder: &mut B, local: Local) -> OperandRef<B::Value> {
-        let layout = builder.ctx().layout_of(self.lir_body.ret_and_args[local].ty);
+        let layout = builder
+            .ctx()
+            .layout_of(self.lir_body.ret_and_args[local].ty);
 
         if layout.is_zst() {
             return OperandRef::new_zst(layout);
@@ -114,7 +120,9 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
         let local_ref = &self.locals[local];
         match local_ref {
             LocalRef::OperandRef(operand_ref) => *operand_ref,
-            LocalRef::PlaceRef(place_ref) => todo!(),
+            LocalRef::PlaceRef(place_ref) => {
+                builder.load_operand(place_ref)
+            }
         }
     }
 }
