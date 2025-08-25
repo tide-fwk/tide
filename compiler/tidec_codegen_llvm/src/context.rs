@@ -129,7 +129,11 @@ impl FnAbiOf for CodegenCtx<'_> {
                 BackendRepr::Scalar(_) => PassMode::Direct,
                 BackendRepr::Memory => PassMode::Indirect,
             };
-            ArgAbi { layout, mode: pass_mode }
+            let mut arg = ArgAbi::new(layout, pass_mode);
+            if arg.layout.is_zst() {
+                arg.mode = PassMode::Ignore;
+            }
+            arg
         };
 
         let ret_arg_abi = argument_of(lir_ret_and_args[RETURN_LOCAL].ty);

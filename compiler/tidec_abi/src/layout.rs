@@ -3,7 +3,7 @@ use crate::{
     target::AddressSpace,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 /// Represents a type along with its size and alignment information.
 ///
 /// This is commonly used during codegen and layout computation to reason about
@@ -25,7 +25,7 @@ impl<T> std::ops::Deref for TyAndLayout<T> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 /// Represents the layout of a type in the target architecture.
 ///
 /// This struct contains the size, alignment, and backend representation
@@ -55,9 +55,16 @@ impl Layout {
             BackendRepr::Memory => self.size.bytes() == 0,
         }
     }
+
+    pub fn is_immediate(&self) -> bool {
+        match self.backend_repr {
+            BackendRepr::Scalar(_)  => true,
+            BackendRepr::Memory /* | BackendRepr::ScalarPair(_, _) */ => false,
+        }
+    }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 /// Represents how values are passed to the backend during code generation.
 ///
 /// This is *not* the same as the platform's ABI.
@@ -77,7 +84,6 @@ pub enum BackendRepr {
     /// The value is represented as a memory reference, such as a pointer or
     /// a reference to a struct or array.
     Memory,
-
     // Scalar pair, which is a pair of scalars. It is often used for
     // returning multiple values from a function. This allows the backend to
     // optimize the representation of multiple return values. Additionally,
@@ -88,7 +94,7 @@ pub enum BackendRepr {
     // ScalarPair(Primitive, Primitive),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 /// Represents primitive types that can be used in the backend representation.
 pub enum Primitive {
     /// A signed integer type.
@@ -111,4 +117,3 @@ pub enum Primitive {
     /// A pointer type.
     Pointer(AddressSpace),
 }
- 
