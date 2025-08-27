@@ -51,6 +51,14 @@ impl<I: Idx, T> IdxVec<I, T> {
         IdxVec::from_raw(Vec::with_capacity(capacity))
     }
 
+    #[inline]
+    /// Pushes a value to the end of the vector, returning the index at which it was inserted.
+    pub fn push(&mut self, value: T) -> I {
+        let idx = self.next_index();
+        self.raw.push(value);
+        idx
+    }
+
     /// Creates a new vector with a copy of `elem` for each index in `universe`.
     ///
     /// Thus `IdxVec::from_elem(elem, &universe)` is equivalent to
@@ -63,7 +71,7 @@ impl<I: Idx, T> IdxVec<I, T> {
     /// ensures that `uses` is an `IdxVec<Local, _>`, and thus can give
     /// better error messages later if one accidentally mismatches indices.
     #[inline]
-    pub fn from_elem<S>(elem: T, universe: &IdxSlice<I, S>) -> Self
+    pub fn from_elem<S>(elem: T, universe: &IdxSlice<I, S>) -> Self 
     where
         T: Clone,
     {
@@ -95,14 +103,6 @@ impl<I: Idx, T> IdxVec<I, T> {
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut IdxSlice<I, T> {
         IdxSlice::from_raw_mut(&mut self.raw)
-    }
-
-    /// Pushes an element to the array returning the index where it was pushed to.
-    #[inline]
-    pub fn push(&mut self, d: T) -> I {
-        let idx = self.next_index();
-        self.raw.push(d);
-        idx
     }
 
     #[inline]
@@ -196,22 +196,6 @@ impl<I: Idx, T> IdxVec<I, T> {
 }
 
 ////////// Trait implementations  //////////
-
-impl<I: Idx, T> Index<I> for IdxVec<I, T> {
-    type Output = T;
-
-    #[inline]
-    fn index(&self, index: I) -> &T {
-        &self.raw[index.idx()]
-    }
-}
-
-impl<I: Idx, T> IndexMut<I> for IdxVec<I, T> {
-    #[inline]
-    fn index_mut(&mut self, index: I) -> &mut T {
-        &mut self.raw[index.idx()]
-    }
-}
 
 impl<I: Idx, T> Deref for IdxVec<I, T> {
     type Target = IdxSlice<I, T>;

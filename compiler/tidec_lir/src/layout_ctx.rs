@@ -1,5 +1,8 @@
-use tidec_abi::layout::TyAndLayout;
 use crate::lir::LirTyCtx;
+use tidec_abi::{
+    layout::{BackendRepr, Layout, Primitive, TyAndLayout},
+    size_and_align::{AbiAndPrefAlign, Size},
+};
 
 pub struct LayoutCtx<'a> {
     lir_ty_ctx: &'a LirTyCtx,
@@ -16,6 +19,15 @@ impl<'a> LayoutCtx<'a> {
     pub fn compute_layout<T>(&self, ty: T) -> TyAndLayout<T> {
         let _ = ty;
         // let data_layout = self.target.data_layout;
-        unimplemented!()
+
+        // HARDCODE FOR TESTING an integer type
+        TyAndLayout {
+            ty,
+            layout: Layout {
+                size: Size::from_bits(32),
+                align: AbiAndPrefAlign::new(4, 4),
+                backend_repr: BackendRepr::Scalar(Primitive::I32),
+            },
+        }
     }
 }

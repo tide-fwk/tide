@@ -6,7 +6,7 @@ use tidec_lir::{
     syntax::{LirTy, Local, RETURN_LOCAL, Statement, Terminator},
 };
 use tidec_utils::index_vec::IdxVec;
-use tracing::{debug, instrument};
+use tracing::{debug, info, instrument};
 
 use crate::{
     lir::{LocalRef, OperandRef},
@@ -24,7 +24,7 @@ pub struct FnCtx<'a, 'be, B: BuilderMethods<'a, 'be>> {
 
     /// The function value.
     /// This is the function that will be generated.
-    pub fn_value: B::Value,
+    pub fn_value: B::FunctionValue,
 
     /// The codegen context.
     pub ctx: &'a B::CodegenCtx,
@@ -63,7 +63,7 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
             return *be_bb;
         }
 
-        let be_bb = B::append_basic_block(&self.ctx, self.fn_value, "");
+        let be_bb = B::append_basic_block(self.ctx, self.fn_value, &format!("bb{:?}", bb));
         self.cached_bbs[bb] = Some(be_bb);
         be_bb
     }
@@ -92,20 +92,23 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
     fn codegen_return_terminator(&mut self, builder: &mut B) {
         let be_val = match self.fn_abi.ret.mode {
             PassMode::Ignore | PassMode::Indirect => {
+                info!("Handling ignored or indirect return");
                 builder.build_return(None);
                 return;
             }
             PassMode::Direct => {
+                info!("Handling direct return");
                 let operand_ref = self.codegen_operand(builder, RETURN_LOCAL);
                 match operand_ref.operand_val {
+                    OperandVal::Zst => todo!("Handle return of ZST. Should be unreachable?"),
                     OperandVal::Ref(_) => todo!("Handle return by reference — load from place"),
-                    _ => todo!()
+                    OperandVal::Pair(_, _) => todo!("Handle return of pair. That is, create an LLVM pair and return it"),
+                    OperandVal::Immediate(val) => val,
                 }
-
             }
         };
 
-        todo!()
+        builder.build_return(Some(be_val));
     }
 
     fn codegen_operand(&mut self, builder: &mut B, local: Local) -> OperandRef<B::Value> {

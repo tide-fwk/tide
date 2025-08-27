@@ -32,7 +32,7 @@ use tracing::debug;
 //    return _0;
 // }
 // ```
-fn main() {
+fn main2() {
     init_tidec_logger();
     debug!("Logging initialized");
 
@@ -80,7 +80,7 @@ fn main() {
     println!("Alignment of i8: {}", align);
 }
 
-fn main2() {
+fn main() {
     init_tidec_logger();
     debug!("Logging initialized");
 
@@ -110,19 +110,21 @@ fn main2() {
         }]),
         locals: IdxVec::new(),
         basic_blocks: IdxVec::from_raw(vec![BasicBlockData {
-            statements: vec![Statement::Assign(Box::new((
-                Place {
-                    local: RETURN_LOCAL,
-                    projection: vec![],
-                },
-                RValue::Const(ConstOperand::Value(
-                    ConstValue::Scalar(ConstScalar::Value(RawScalarValue {
-                        data: 0u128,
-                        size: NonZero::new(4).unwrap(), // 4 bytes for i32
-                    })),
-                    LirTy::I32,
-                )),
-            )))],
+            statements: vec![
+            //     Statement::Assign(Box::new((
+            //     Place {
+            //         local: RETURN_LOCAL,
+            //         projection: vec![],
+            //     },
+            //     RValue::Const(ConstOperand::Value(
+            //         ConstValue::Scalar(ConstScalar::Value(RawScalarValue {
+            //             data: 0u128,
+            //             size: NonZero::new(4).unwrap(), // 4 bytes for i32
+            //         })),
+            //         LirTy::I32,
+            //     )),
+            // )))
+            ],
             terminator: Terminator::Return,
         }]),
     }]);
@@ -135,7 +137,7 @@ fn main2() {
         bodies: lir_bodies,
     };
 
-    compile_codegen_unit(lir_ctx, lir_unit);
+    compile_codegen_unit(lir_ctx, lir_unit, true);
 }
 
 /// Initialize the logger for the tidec project.
@@ -148,3 +150,63 @@ fn init_tidec_logger() {
         std::process::exit(1);
     }
 }
+
+// fn main() {
+//     init_tidec_logger();
+//     debug!("Logging initialized");
+//
+//     let lir_ctx = LirTyCtx::new(BackendKind::Llvm);
+//
+//     // Create a simple main function that returns 0.
+//     // ```c
+//     // int main() {
+//     //   return 0;
+//     // }
+//     // ```
+//     let lir_body_metadata = LirBodyMetadata {
+//         def_id: DefId(0),
+//         name: "main".to_string(),
+//         kind: LirBodyKind::Item(LirItemKind::Function),
+//         inlined: false,
+//         linkage: Linkage::External, // TODO(bruzzone): Check the correct linkage
+//         visibility: Visibility::Default,
+//         unnamed_address: UnnamedAddress::None,
+//         call_conv: CallConv::C,
+//     };
+//     let lir_bodies = IdxVec::from_raw(vec![LirBody {
+//         metadata: lir_body_metadata,
+//         ret_and_args: IdxVec::from_raw(vec![LocalData {
+//             ty: LirTy::I32,
+//             mutable: false,
+//         }]),
+//         locals: IdxVec::new(),
+//         basic_blocks: IdxVec::from_raw(vec![BasicBlockData {
+//             statements: vec![Statement::Assign(Box::new((
+//                 Place {
+//                     local: RETURN_LOCAL,
+//                     projection: vec![],
+//                 },
+//                 RValue::Const(ConstOperand::Value(
+//                     ConstValue::Scalar(ConstScalar::Value(RawScalarValue {
+//                         data: 0u128,
+//                         size: NonZero::new(4).unwrap(), // 4 bytes for i32
+//                     })),
+//                     LirTy::I32,
+//                 )),
+//             )))],
+//             terminator: Terminator::Return,
+//         }]),
+//     }]);
+//     let lit_unit_metadata = LirUnitMetadata {
+//         unit_name: "fcb_module".to_string(),
+//     };
+//
+//     let lir_unit: LirUnit = LirUnit {
+//         metadata: lit_unit_metadata,
+//         bodies: lir_bodies,
+//     };
+//
+//     compile_codegen_unit(lir_ctx, lir_unit, true);
+// }
+
+

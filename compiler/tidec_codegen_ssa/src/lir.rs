@@ -7,6 +7,7 @@ use tidec_abi::{
     layout::TyAndLayout,
     size_and_align::{Align, Size},
 };
+use tidec_lir::basic_blocks::ENTRY_BLOCK;
 use tidec_lir::{
     lir::LirBody,
     syntax::{LirTy, Local, LocalData},
@@ -62,7 +63,7 @@ impl<V: std::fmt::Debug> OperandRef<V> {
     pub fn new_zst(ty_layout: TyAndLayout<LirTy>) -> Self {
         OperandRef {
             operand_val: OperandVal::Zst,
-            ty_layout
+            ty_layout,
         }
     }
 
@@ -190,8 +191,20 @@ pub fn codegen_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
 ) {
     let fn_abi = ctx.fn_abi_of(ctx.lit_ty_ctx(), &lir_body.ret_and_args);
     let fn_value = ctx.get_or_define_fn(&lir_body.metadata, &lir_body.ret_and_args);
-    let entry_bb = B::append_basic_block(&ctx, fn_value, "entry");
+    let entry_bb = B::append_basic_block(ctx, fn_value, "entry");
     let mut start_builder = B::build(ctx, entry_bb);
+
+    let cached_bbs = lir_body
+        .basic_blocks
+        .indices()
+        .map(|bb| {
+            if bb == ENTRY_BLOCK {
+                Some(entry_bb)
+            } else {
+                None
+            }
+        })
+        .collect();
 
     let mut fn_ctx = FnCtx::<'_, '_, B> {
         fn_abi,
@@ -199,7 +212,7 @@ pub fn codegen_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
         fn_value,
         ctx,
         locals: IdxVec::new(),
-        cached_bbs: IdxVec::new(),
+        cached_bbs,
     };
 
     let mut allocate_locals =
@@ -210,7 +223,7 @@ pub fn codegen_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
                 debug!("Allocating local {:?} of type {:?}", local, local_data.ty);
                 let layout = start_builder.ctx().layout_of(local_data.ty);
                 let local_ref = LocalRef::PlaceRef(PlaceRef::alloca(&mut start_builder, layout));
-                local_allocas[local] = local_ref;
+                local_allocas.push(local_ref);
             }
 
             local_allocas
