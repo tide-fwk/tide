@@ -163,6 +163,7 @@ impl<'ll> CodegenCtx<'ll> {
             BasicTypeEnum::PointerType(pointer_type) => pointer_type.fn_type(param_tys, false),
             BasicTypeEnum::StructType(struct_type) => struct_type.fn_type(param_tys, false),
             BasicTypeEnum::VectorType(vector_type) => vector_type.fn_type(param_tys, false),
+            BasicTypeEnum::ScalableVectorType(scalable_vector_type) => scalable_vector_type.fn_type(param_tys, false),
         };
 
         fn_ty
