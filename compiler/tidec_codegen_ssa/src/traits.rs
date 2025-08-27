@@ -37,11 +37,12 @@ pub trait CodegenBackendTypes {
     /// A `Type` is a type in the codegen backend.
     type Type: Copy + PartialEq + std::fmt::Debug;
     /// A `Value` is an instance of a type in the codegen backend.
-    /// Note that this should include `FunctionValue`.
     /// E.g., an instruction, constant, argument, or a function value.
     type Value: Copy + PartialEq + std::fmt::Debug;
     /// A `Function` is a function type in the codegen backend.
     type FunctionType: Copy + PartialEq + std::fmt::Debug;
+    /// A `FunctionValue` is a function value in the codegen backend.
+    type FunctionValue: Copy + PartialEq + std::fmt::Debug;
     /// A `MetadataType` is a metadata type in the codegen backend.
     type MetadataType: Copy + PartialEq + std::fmt::Debug;
     /// A `MetadataValue` is a metadata value in the codegen backend.
@@ -95,14 +96,14 @@ pub trait CodegenMethods<'be>:
     fn lit_ty_ctx(&self) -> &LirTyCtx;
 
     /// Returns the function value for the given LIR body if it exists.
-    fn get_fn(&self, lir_body_metadata: &LirBodyMetadata) -> Option<Self::Value>;
+    fn get_fn(&self, lir_body_metadata: &LirBodyMetadata) -> Option<Self::FunctionValue>;
 
     /// Returns the function value for the given LIR body or defines it if it does not exist.
     fn get_or_define_fn(
         &self,
         lir_fn_metadata: &LirBodyMetadata,
         lir_fn_ret_and_args: &IdxVec<Local, LocalData>,
-    ) -> Self::Value;
+    ) -> Self::FunctionValue;
 }
 
 /// The builder methods for the codegen backend.
@@ -116,6 +117,7 @@ pub trait BuilderMethods<'a, 'be>: Sized + CodegenBackendTypes {
             Type = Self::Type,
             Value = Self::Value,
             FunctionType = Self::FunctionType,
+            FunctionValue = Self::FunctionValue,
             MetadataType = Self::MetadataType,
             MetadataValue = Self::MetadataValue,
         >;
@@ -136,7 +138,7 @@ pub trait BuilderMethods<'a, 'be>: Sized + CodegenBackendTypes {
     /// The function value is assumed to be valid and belong to the same context as the codegen context.
     fn append_basic_block(
         ctx: &'a Self::CodegenCtx,
-        fn_value: Self::Value,
+        fn_value: Self::FunctionValue,
         name: &str,
     ) -> Self::BasicBlock;
 

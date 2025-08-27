@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use inkwell::llvm_sys::core::{LLVMIsAGlobalVariable, LLVMIsGlobalConstant};
 use inkwell::llvm_sys::prelude::LLVMBool;
-use inkwell::values::{AnyValueEnum, AsValueRef, BasicValue, GlobalValue};
+use inkwell::values::{AnyValueEnum, AsValueRef, BasicValue, BasicValueEnum, FunctionValue, GlobalValue};
 use inkwell::{basic_block::BasicBlock, builder::Builder};
 use tidec_abi::size_and_align::{Align, Size};
 use tidec_codegen_ssa::lir::{OperandRef, PlaceRef};
@@ -25,15 +25,16 @@ impl<'ll> Deref for CodegenBuilder<'_, 'll> {
     type Target = CodegenCtx<'ll>;
 
     fn deref(&self) -> &Self::Target {
-        &self.ctx
+        self.ctx
     }
 }
 
 impl<'ll> CodegenBackendTypes for CodegenBuilder<'_, 'll> {
     type BasicBlock = <CodegenCtx<'ll> as CodegenBackendTypes>::BasicBlock;
+    type Type = <CodegenCtx<'ll> as CodegenBackendTypes>::Type;
     type Value = <CodegenCtx<'ll> as CodegenBackendTypes>::Value;
     type FunctionType = <CodegenCtx<'ll> as CodegenBackendTypes>::FunctionType;
-    type Type = <CodegenCtx<'ll> as CodegenBackendTypes>::Type;
+    type FunctionValue = <CodegenCtx<'ll> as CodegenBackendTypes>::FunctionValue;
     type MetadataType = <CodegenCtx<'ll> as CodegenBackendTypes>::MetadataType;
     type MetadataValue = <CodegenCtx<'ll> as CodegenBackendTypes>::MetadataValue;
 }
@@ -53,6 +54,7 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
         self.ctx
     }
 
+    #[instrument(skip(ctx, llbb))]
     /// Create a new CodeGenBuilder from a CodeGenCtx and a BasicBlock.
     /// The builder is positioned at the end of the BasicBlock.
     fn build(ctx: &'a CodegenCtx<'ll>, llbb: BasicBlock) -> Self {
@@ -63,11 +65,11 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
 
     #[instrument(skip(self))]
     /// Allocate memory for a value of the given size and alignment.
+    ///
+    /// We do not track the first basic block, so the caller should ensure
+    /// that the allocation is done at the beginning of the function.
     fn alloca(&self, size: Size, align: Align) -> Self::Value {
-        let builder = CodegenBuilder::with_ctx(self.ctx);
-        builder
-            .ll_builder
-            .position_at_end(builder.ll_builder.get_insert_block().unwrap());
+        let builder = self;
         let ty = self
             .ctx
             .ll_context
@@ -99,10 +101,9 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
     /// Panics if the function is not a valid function value.
     fn append_basic_block(
         ctx: &'a CodegenCtx<'ll>,
-        fn_value: AnyValueEnum<'ll>,
+        fn_value: FunctionValue<'ll>,
         name: &str,
     ) -> BasicBlock<'ll> {
-        let fn_value = fn_value.into_function_value(); // TODO: use something try_function_and_collect the error
         ctx.ll_context.append_basic_block(fn_value, name)
     }
 
@@ -113,17 +114,26 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
         }
 
         if place_ref.ty_layout.is_immediate() {
-            let mut ll_global_const: Option<AnyValueEnum> = None;
+            let mut ll_global_const: Option<BasicValueEnum> = None;
             let llty = place_ref.ty_layout.ty.into_basic_type(self.ctx);
 
-            // TODO: Move to a safe version
-            unsafe {
-                let llval = LLVMIsAGlobalVariable(place_ref.place_val.value.as_value_ref());
-                if LLVMIsGlobalConstant(llval) == LLVMBool::from(0) {
-                    let global_val = GlobalValue::new(llval);
-                    let loaded_val = global_val.get_initializer().unwrap();
+            // ```rust
+            // unsafe {
+            //     let llval = LLVMIsAGlobalVariable(place_ref.place_val.value.as_value_ref());
+           //     if !llval.is_null() && LLVMIsGlobalConstant(llval) == LLVMBool::from(1) {
+            //         let global_val = GlobalValue::new(llval);
+            //         let loaded_val = global_val.get_initializer().unwrap();
+            //         assert_eq!(loaded_val.get_type(), llty);
+            //         ll_global_const = Some(loaded_val);
+            //     }
+            // }
+            // ```
+            let global_val= self.ll_module.get_global(place_ref.place_val.value.get_name().to_str().unwrap());
+            if let Some(gv) = global_val {
+                if gv.is_constant() {
+                    let loaded_val = gv.get_initializer().unwrap();
                     assert_eq!(loaded_val.get_type(), llty);
-                    ll_global_const = Some(loaded_val.into());
+                    ll_global_const = Some(loaded_val);
                 }
             }
 
@@ -157,14 +167,13 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
     /// Build a return instruction for the given builder.
     /// If the return value is `None`, it means that the function returns `void`,
     /// otherwise it returns the given value.
-    fn build_return(&mut self, ret_val: Option<AnyValueEnum<'ll>>) {
+    fn build_return(&mut self, ret_val: Option<Self::Value>) {
         match ret_val {
             None => {
-                self.ll_builder.build_return(None);
+                let _ = self.ll_builder.build_return(None);
             }
             Some(val) => {
-                todo!("Handle return value");
-                // self.ll_builder.build_return(Some(&val));
+                let _ = self.ll_builder.build_return(Some(&val));
             }
         }
     }
@@ -182,6 +191,6 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
             .set_alignment(align.bytes() as u32)
             .expect("Failed to set alignment");
 
-        load_inst.into()
+        load_inst
     }
 }

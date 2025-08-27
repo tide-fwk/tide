@@ -27,6 +27,12 @@ pub enum LirTy {
 pub struct Local(usize);
 pub const RETURN_LOCAL: Local = Local(0);
 
+impl Local {
+    pub fn next(&self) -> Local {
+        Local(self.0 + 1)
+    }
+}
+
 #[derive(Debug)]
 /// Represents a memory location (or "place") within LIR that can be used
 /// as the target of assignments or the source of loads.

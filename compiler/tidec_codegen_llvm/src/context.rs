@@ -7,12 +7,12 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{TargetData, TargetTriple};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
-use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum};
+use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum, BasicValueEnum, FunctionValue};
 use tidec_abi::calling_convention::function::{ArgAbi, FnAbi, PassMode};
 use tidec_abi::layout::{BackendRepr, TyAndLayout};
-use tidec_lir::layout_ctx::LayoutCtx;
 use tidec_codegen_ssa::lir;
-use tidec_utils::index_vec::IdxVec;
+use tidec_lir::layout_ctx::LayoutCtx;
+use tidec_utils::{index_vec::IdxVec, idx::Idx};
 use tracing::{debug, instrument};
 
 use crate::lir::lir_body_metadata::{
@@ -20,7 +20,8 @@ use crate::lir::lir_body_metadata::{
 };
 use crate::lir::lir_ty::BasicTypesUtils;
 use tidec_codegen_ssa::traits::{
-    CodegenBackend, CodegenBackendTypes, CodegenMethods, DefineCodegenMethods, FnAbiOf, LayoutOf, PreDefineCodegenMethods
+    CodegenBackend, CodegenBackendTypes, CodegenMethods, DefineCodegenMethods, FnAbiOf, LayoutOf,
+    PreDefineCodegenMethods,
 };
 use tidec_lir::lir::{DefId, LirBody, LirBodyMetadata, LirTyCtx};
 use tidec_lir::syntax::{LirTy, Local, LocalData, RETURN_LOCAL};
@@ -55,8 +56,9 @@ impl<'ll> Deref for CodegenCtx<'ll> {
 impl<'ll> CodegenBackendTypes for CodegenCtx<'ll> {
     type BasicBlock = BasicBlock<'ll>;
     type FunctionType = FunctionType<'ll>;
+    type FunctionValue = FunctionValue<'ll>;
     type Type = BasicTypeEnum<'ll>;
-    type Value = AnyValueEnum<'ll>;
+    type Value = BasicValueEnum<'ll>;
     type MetadataType = BasicMetadataTypeEnum<'ll>;
     type MetadataValue = BasicMetadataValueEnum<'ll>;
 }
@@ -75,7 +77,7 @@ impl PreDefineCodegenMethods for CodegenCtx<'_> {
         let name = lir_body_metadata.name.as_str();
 
         let ret_ty = lir_body_ret_and_args[RETURN_LOCAL].ty.into_basic_type(self);
-        let formal_param_tys = lir_body_ret_and_args.as_slice()[RETURN_LOCAL..]
+        let formal_param_tys = lir_body_ret_and_args.as_slice()[RETURN_LOCAL.next()..]
             .iter()
             .map(|local_data| local_data.ty.into_basic_type_metadata(self))
             .collect::<Vec<_>>();
@@ -119,9 +121,11 @@ impl LayoutOf for CodegenCtx<'_> {
 
 impl FnAbiOf for CodegenCtx<'_> {
     #[instrument(level = "debug", skip(self, lir_ty_ctx))]
-    fn fn_abi_of(&self, 
+    fn fn_abi_of(
+        &self,
         lir_ty_ctx: &LirTyCtx,
-        lir_ret_and_args: &IdxVec<Local, LocalData>) -> FnAbi<LirTy> {
+        lir_ret_and_args: &IdxVec<Local, LocalData>,
+    ) -> FnAbi<LirTy> {
         let layout_ctx = LayoutCtx::new(lir_ty_ctx);
         let argument_of = |ty: LirTy| -> ArgAbi<LirTy> {
             let layout = layout_ctx.compute_layout(ty);
@@ -137,8 +141,7 @@ impl FnAbiOf for CodegenCtx<'_> {
         };
 
         let ret_arg_abi = argument_of(lir_ret_and_args[RETURN_LOCAL].ty);
-        let arg_abis = lir_ret_and_args
-            .as_slice()[RETURN_LOCAL..]
+        let arg_abis = lir_ret_and_args.as_slice()[RETURN_LOCAL.next()..]
             .iter()
             .map(|local_data| argument_of(local_data.ty))
             .collect();
@@ -163,7 +166,9 @@ impl<'ll> CodegenCtx<'ll> {
             BasicTypeEnum::PointerType(pointer_type) => pointer_type.fn_type(param_tys, false),
             BasicTypeEnum::StructType(struct_type) => struct_type.fn_type(param_tys, false),
             BasicTypeEnum::VectorType(vector_type) => vector_type.fn_type(param_tys, false),
-            BasicTypeEnum::ScalableVectorType(scalable_vector_type) => scalable_vector_type.fn_type(param_tys, false),
+            BasicTypeEnum::ScalableVectorType(scalable_vector_type) => {
+                scalable_vector_type.fn_type(param_tys, false)
+            }
         };
 
         fn_ty
@@ -198,17 +203,17 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
         &self.lir_ty_ctx
     }
 
-    fn get_fn(&self, lir_body_metadata: &LirBodyMetadata) -> Option<AnyValueEnum<'ll>> {
+    fn get_fn(&self, lir_body_metadata: &LirBodyMetadata) -> Option<FunctionValue<'ll>> {
         let name = lir_body_metadata.name.as_str();
 
         if let Some(instance) = self.instances.borrow().get(&lir_body_metadata.def_id) {
             debug!("get_fn(name: {}) found in instances", name);
-            return Some(instance.clone());
+            return Some((*instance).into_function_value());
         }
 
         if let Some(f) = self.ll_module.get_function(name) {
             debug!("get_fn(name: {}) found in module", name);
-            return Some(AnyValueEnum::FunctionValue(f));
+            return Some(f);
         }
 
         debug!("get_fn(name: {}) not found", name);
@@ -220,7 +225,7 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
         &self,
         lir_body_metadata: &LirBodyMetadata,
         lir_body_ret_and_args: &IdxVec<Local, LocalData>,
-    ) -> AnyValueEnum<'ll> {
+    ) -> FunctionValue<'ll> {
         let name = lir_body_metadata.name.as_str();
 
         if let Some(fn_val) = self.get_fn(lir_body_metadata) {
@@ -234,6 +239,7 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
             .get_fn(lir_body_metadata)
             .expect("function should be defined after predefine_body");
 
-        AnyValueEnum::FunctionValue(fn_val.into_function_value())
+        debug!("get_or_define_fn(name: {}) defined", name);
+        fn_val
     }
 }
