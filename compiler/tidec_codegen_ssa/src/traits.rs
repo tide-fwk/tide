@@ -5,7 +5,7 @@ use tidec_abi::{
 };
 use tidec_lir::{
     lir::{LirBody, LirBodyMetadata, LirTyCtx},
-    syntax::{LirTy, Local, LocalData},
+    syntax::{ConstScalar, LirTy, Local, LocalData},
 };
 use tidec_utils::index_vec::IdxVec;
 
@@ -161,4 +161,16 @@ pub trait BuilderMethods<'a, 'be>: Sized + CodegenBackendTypes {
     /// The value is assumed to be of the same type as the place reference.
     /// The alignment is the alignment of the place reference.
     fn build_load(&mut self, ty: Self::Type, ptr: Self::Value, align: Align) -> Self::Value;
+
+    /// Construct a backend value from a constant scalar and its LIR type.
+    /// This is used to create constant values in the backend.
+    ///
+    /// For instance, in LLVM this could correspond to `LLVMConstInt` or `LLVMConstReal`.
+    fn const_scalar_to_backend_value(
+        &self,
+        const_scalar: ConstScalar,
+        ty_layout: TyAndLayout<LirTy>,
+    ) -> Self::Value;
 }
+
+

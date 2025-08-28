@@ -2,12 +2,17 @@ use std::ops::Deref;
 
 use inkwell::llvm_sys::core::{LLVMIsAGlobalVariable, LLVMIsGlobalConstant};
 use inkwell::llvm_sys::prelude::LLVMBool;
-use inkwell::values::{AnyValueEnum, AsValueRef, BasicValue, BasicValueEnum, FunctionValue, GlobalValue};
+use inkwell::types::BasicTypeEnum;
+use inkwell::values::{
+    AnyValueEnum, AsValueRef, BasicValue, BasicValueEnum, FunctionValue, GlobalValue,
+};
 use inkwell::{basic_block::BasicBlock, builder::Builder};
+use tidec_abi::layout::{BackendRepr, Primitive, TyAndLayout};
 use tidec_abi::size_and_align::{Align, Size};
 use tidec_codegen_ssa::lir::{OperandRef, PlaceRef};
 use tidec_codegen_ssa::traits::{BuilderMethods, CodegenBackendTypes};
-use tracing::instrument;
+use tidec_lir::syntax::{ConstScalar, LirTy};
+use tracing::{info, instrument};
 
 use crate::context::CodegenCtx;
 use crate::lir::lir_ty::BasicTypesUtils;
@@ -18,7 +23,7 @@ use crate::lir::lir_ty::BasicTypesUtils;
 /// additional methods for code generation.
 pub struct CodegenBuilder<'a, 'll> {
     pub ll_builder: Builder<'ll>,
-    pub ctx: &'a CodegenCtx<'ll>,
+    ctx: &'a CodegenCtx<'ll>,
 }
 
 impl<'ll> Deref for CodegenBuilder<'_, 'll> {
@@ -120,7 +125,7 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
             // ```rust
             // unsafe {
             //     let llval = LLVMIsAGlobalVariable(place_ref.place_val.value.as_value_ref());
-           //     if !llval.is_null() && LLVMIsGlobalConstant(llval) == LLVMBool::from(1) {
+            //     if !llval.is_null() && LLVMIsGlobalConstant(llval) == LLVMBool::from(1) {
             //         let global_val = GlobalValue::new(llval);
             //         let loaded_val = global_val.get_initializer().unwrap();
             //         assert_eq!(loaded_val.get_type(), llty);
@@ -128,7 +133,9 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
             //     }
             // }
             // ```
-            let global_val= self.ll_module.get_global(place_ref.place_val.value.get_name().to_str().unwrap());
+            let global_val = self
+                .ll_module
+                .get_global(place_ref.place_val.value.get_name().to_str().unwrap());
             if let Some(gv) = global_val {
                 if gv.is_constant() {
                     let loaded_val = gv.get_initializer().unwrap();
@@ -138,22 +145,19 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
             }
 
             let llval = ll_global_const.unwrap_or_else(|| {
-                let loaded_val = self.build_load(
-                    llty,
-                    place_ref.place_val.value,
-                    place_ref.place_val.align,
-                );
-                // TODO: Here we should call: 
+                let loaded_val =
+                    self.build_load(llty, place_ref.place_val.value, place_ref.place_val.align);
+                // TODO: Here we should call:
                 //
-                // 1) scalar_load_metadata(...) 
-                // Attaches LLVM metadata to the load instruction (the one that just pulled load from memory). 
-                // This metadata guides LLVM optimizations and correctness: 
-                // e.g. alignment info, nonnull if it’s a pointer, range for integers, noalias hints, etc. 
-                // So if you load an &T, the compiler may add metadata saying “this pointer is non-null”. 
+                // 1) scalar_load_metadata(...)
+                // Attaches LLVM metadata to the load instruction (the one that just pulled load from memory).
+                // This metadata guides LLVM optimizations and correctness:
+                // e.g. alignment info, nonnull if it’s a pointer, range for integers, noalias hints, etc.
+                // So if you load an &T, the compiler may add metadata saying “this pointer is non-null”.
                 //
-                // 2) self.to_immediate_scalar(load, scalar) 
-                // Converts the loaded LLVM value (load) into an immediate scalar representation in Tide’s codegen world. 
-                // Why? Because some scalars (e.g., booleans) need normalization: Tide booleans are guaranteed to be 0 or 1, 
+                // 2) self.to_immediate_scalar(load, scalar)
+                // Converts the loaded LLVM value (load) into an immediate scalar representation in Tide’s codegen world.
+                // Why? Because some scalars (e.g., booleans) need normalization: Tide booleans are guaranteed to be 0 or 1,
                 // but LLVM might treat them as any non-zero integer. to_immediate_scalar ensures consistency with Tide’s semantics.
                 loaded_val
             });
@@ -178,7 +182,8 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
         }
     }
 
-    /// Build a load instruction to load a value from the given pointer.
+    /// Build a load instruction to load a value from the given pointer. It also creates
+    /// a new variable to hold the loaded value.
     fn build_load(&mut self, ty: Self::Type, ptr: Self::Value, align: Align) -> Self::Value {
         let load_inst = match self.ll_builder.build_load(ty, ptr.into_pointer_value(), "") {
             Ok(v) => v,
@@ -192,5 +197,36 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
             .expect("Failed to set alignment");
 
         load_inst
+    }
+
+    fn const_scalar_to_backend_value(
+        &self,
+        const_scalar: ConstScalar,
+        ty_layout: TyAndLayout<LirTy>,
+    ) -> Self::Value {
+        assert!(matches!(ty_layout.backend_repr, BackendRepr::Scalar(_)));
+        let llty = ty_layout.ty.into_basic_type(self.ctx);
+        let be_repr = ty_layout.backend_repr.to_primitive();
+
+        match const_scalar {
+            /* TODO: ConstScalar::Ptr(...) */
+            ConstScalar::Value(raw_scalar_value) => {
+                let bits = raw_scalar_value.to_bits(ty_layout.size);
+                // TODO: Consider moving i128_type method to ctx
+                let int_128 = self.ctx().ll_context.i128_type();
+                //
+                // Split the 128-bit integer into two 64-bit words for LLVM
+                let words = [(bits & u64::MAX as u128) as u64, (bits >> 64) as u64];
+                let llval = int_128.const_int_arbitrary_precision(&words);
+
+                if let Primitive::Pointer(_) = be_repr {
+                    llval.const_to_pointer(llty.into_pointer_type()).into()
+                } else {
+                    llval
+                        .const_truncate_or_bit_cast(llty.into_int_type())
+                        .into()
+                }
+            }
+        }
     }
 }

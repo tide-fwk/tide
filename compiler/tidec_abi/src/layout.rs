@@ -62,9 +62,16 @@ impl Layout {
             BackendRepr::Memory /* | BackendRepr::ScalarPair(_, _) */ => false,
         }
     }
+
+    pub fn is_memory(&self) -> bool {
+        match self.backend_repr {
+            BackendRepr::Memory => true,
+            _ => false,
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Represents how values are passed to the backend during code generation.
 ///
 /// This is *not* the same as the platform's ABI.
@@ -94,7 +101,18 @@ pub enum BackendRepr {
     // ScalarPair(Primitive, Primitive),
 }
 
-#[derive(Debug, Clone, Copy)]
+impl BackendRepr {
+    /// Converts the `BackendRepr` to its corresponding `Primitive` type if it is a scalar.
+    pub fn to_primitive(&self) -> Primitive {
+        match self {
+            BackendRepr::Scalar(p) => *p,
+            // BackendRepr::ScalarPair(p1, p2) => Some((*p1, *p2)),
+            BackendRepr::Memory => panic!("Memory backend representation does not have a primitive type"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Represents primitive types that can be used in the backend representation.
 pub enum Primitive {
     /// A signed integer type.
