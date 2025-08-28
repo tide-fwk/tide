@@ -1,5 +1,6 @@
 use std::num::NonZero;
 
+use tidec_abi::size_and_align::Size;
 use tidec_utils::idx::Idx;
 
 #[derive(Debug, Copy, Clone)]
@@ -66,6 +67,17 @@ pub struct Place {
     pub projection: Vec<Projection>,
 }
 
+impl Place {
+    #[inline]
+    pub fn try_local(&self) -> Option<Local> {
+        if self.projection.is_empty() {
+            Some(self.local)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug)]
 /// Represents a single step in a `Place` projection path.
 ///
@@ -123,6 +135,21 @@ pub enum RValue {
 pub enum ConstOperand {
     /// A constant value that can be used in the LIR.
     Value(ConstValue, LirTy),
+}
+
+impl ConstOperand {
+    /// Returns the type of the constant operand.
+    pub fn ty(&self) -> LirTy {
+        match self {
+            ConstOperand::Value(_, ty) => *ty,
+        }
+    }
+
+    pub fn value(&self) -> ConstValue {
+        match self {
+            ConstOperand::Value(val, _) => *val,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -298,6 +325,22 @@ pub struct RawScalarValue {
     pub size: NonZero<u8>,
 }
 
+impl RawScalarValue {
+    /// Attempts to convert this raw scalar value to a bit representation of the specified size.
+    /// It fails if the sizes do not match. That is, if `self.size` is not equal to `taget_size`.
+    pub fn to_bits(&self, taget_size: Size) -> u128 {
+        assert_ne!(taget_size.bytes() as u8, 0);
+        if self.size.get() != taget_size.bytes() as u8 {
+            panic!(
+                "Mismatched sizes: expected {}, got {}",
+                taget_size.bytes(),
+                self.size
+            );
+        }
+        self.data
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct LocalData {
     pub ty: LirTy,
@@ -310,8 +353,7 @@ pub struct LocalData {
 /// A statement is an operation that does not transfer control to another block (i.e., it is not a
 /// terminator of a basic block). It is a part of the block's execution.
 pub enum Statement {
-    // An assignment statement.
-    // TODO(bruzzone): Consider removing the Box.
+    // An assignment statement. We use a Box to keep the size small.
     Assign(Box<(Place, RValue)>),
 }
 

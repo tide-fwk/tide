@@ -1,9 +1,12 @@
-use crate::{lir::OperandVal, traits::LayoutOf};
+use crate::{
+    lir::{OperandVal, PlaceRef},
+    traits::LayoutOf,
+};
 use tidec_abi::calling_convention::function::{FnAbi, PassMode};
 use tidec_lir::{
     basic_blocks::{BasicBlock, BasicBlockData},
     lir::{LirBody, LirUnit},
-    syntax::{LirTy, Local, RETURN_LOCAL, Statement, Terminator},
+    syntax::{LirTy, Local, RValue, Statement, Terminator, RETURN_LOCAL},
 };
 use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, info, instrument};
@@ -68,12 +71,83 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
         be_bb
     }
 
+    #[instrument(level = "debug", skip(self, builder))]
     /// Codegen the given LIR statement.
     /// This function is called by `codegen_basic_block` for each statement in the basic block.
     /// It generates the corresponding instructions in the backend.
     fn codegen_statement(&mut self, builder: &mut B, stmt: &Statement) {
-        let _ = (builder, stmt);
-        todo!("Implement codegen_statement");
+        // TODO(bruzzone): handle span for debugging here
+        match stmt {
+            Statement::Assign(assig) => {
+                let place = &assig.0;
+                let rvalue = &assig.1;
+                match place.try_local() {
+                    Some(local) => {
+                        debug!("Assigning to local {:?}", local);
+                        match self.locals[local] {
+                            LocalRef::PlaceRef(place_ref) => {
+                                self.codegen_rvalue(builder, place_ref, rvalue)
+                            }
+                            LocalRef::OperandRef(operand_ref) => {
+                                // We cannot assign to an operand ref that is not a ZST
+                                // because operand refs are immutable. That is, we cannot change
+                                // the value of an operand ref. However, we can assign to a ZST
+                                // because it has no value.
+                                if !operand_ref.ty_layout.is_zst() {
+                                    // TODO: handle this error properly
+                                    panic!("Cannot assign to non-ZST operand ref");
+                                }
+
+                                // For ZST, we can just ignore the assignment
+                                // but we still need to codegen the rvalue
+                                // to handle any side effects it may have.
+                                // For example, if the rvalue is a function call
+                                // that may panic, we need to codegen it.
+                                self.codegen_rvalue_operand(builder, rvalue);
+                            }
+                            LocalRef::PendingOperandRef => {
+                                let operand = self.codegen_rvalue_operand(builder, rvalue);
+                                self.overwrite_local(local, LocalRef::OperandRef(operand));
+                            }
+                        }
+                    }
+                    None => {
+                        todo!(
+                            "Handle assignment to non-local places - we have to generate the place and the rvalue"
+                        );
+                        // let place_dest = self.codegen_place(bx, place.as_ref());
+                        // self.codegen_rvalue(bx, place_dest, rvalue);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn codegen_rvalue(
+        &mut self,
+        builder: &mut B,
+        place_ref: PlaceRef<B::Value>,
+        rvalue: &RValue,
+    ) {
+        todo!("Implement codegen_rvalue");
+    }
+
+    pub fn codegen_rvalue_operand(
+        &mut self,
+        builder: &mut B,
+        rvalue: &RValue,
+    ) -> OperandRef<B::Value> {
+        match rvalue {
+            RValue::Const(const_operand) => OperandRef::new_const(
+                builder,
+                const_operand.value(),
+                const_operand.ty(),
+            ),
+        }
+    }
+
+    fn overwrite_local(&mut self, local: Local, new_ref: LocalRef<B::Value>) {
+        self.locals[local] = new_ref;
     }
 
     /// Codegen the given LIR terminator.
@@ -98,20 +172,23 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
             }
             PassMode::Direct => {
                 info!("Handling direct return");
-                let operand_ref = self.codegen_operand(builder, RETURN_LOCAL);
+                let operand_ref = self.codegen_consume(builder, RETURN_LOCAL);
                 match operand_ref.operand_val {
                     OperandVal::Zst => todo!("Handle return of ZST. Should be unreachable?"),
                     OperandVal::Ref(_) => todo!("Handle return by reference — load from place"),
-                    OperandVal::Pair(_, _) => todo!("Handle return of pair. That is, create an LLVM pair and return it"),
+                    OperandVal::Pair(_, _) => {
+                        todo!("Handle return of pair. That is, create an LLVM pair and return it")
+                    }
                     OperandVal::Immediate(val) => val,
                 }
             }
         };
+        
 
         builder.build_return(Some(be_val));
     }
 
-    fn codegen_operand(&mut self, builder: &mut B, local: Local) -> OperandRef<B::Value> {
+    fn codegen_consume(&mut self, builder: &mut B, local: Local) -> OperandRef<B::Value> {
         let layout = builder
             .ctx()
             .layout_of(self.lir_body.ret_and_args[local].ty);
@@ -122,11 +199,23 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
 
         let local_ref = &self.locals[local];
         match local_ref {
-            LocalRef::OperandRef(operand_ref) => *operand_ref,
-            LocalRef::PlaceRef(place_ref) => {
-                builder.load_operand(place_ref)
+            LocalRef::OperandRef(operand_ref) => {
+                // TODO(bruzzone): we should handle projections here
+                *operand_ref
+            }
+            LocalRef::PlaceRef(place_ref) => builder.load_operand(place_ref),
+            LocalRef::PendingOperandRef => {
+                panic!(
+                    "Cannot consume a pending operand ref {:?} before it is defined",
+                    local_ref
+                );
             }
         }
+
+        // for most places, to consume them we just load them
+        // out from their home
+        // let place = self.codegen_place(bx, place_ref);
+        // bx.load_operand(place)
     }
 }
 

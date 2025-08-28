@@ -3,19 +3,21 @@ use crate::{
     entry::FnCtx,
     traits::{BuilderMethods, CodegenMethods},
 };
+use tidec_abi::layout::BackendRepr;
 use tidec_abi::{
     layout::TyAndLayout,
     size_and_align::{Align, Size},
 };
 use tidec_lir::basic_blocks::ENTRY_BLOCK;
+use tidec_lir::syntax::{ConstOperand, ConstValue};
 use tidec_lir::{
     lir::LirBody,
     syntax::{LirTy, Local, LocalData},
 };
 use tidec_utils::index_vec::IdxVec;
-use tracing::debug;
+use tracing::{debug, instrument};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 /// Represents a memory location or “place” during code generation.
 ///
 /// `PlaceRef` encapsulates both the **backend-level representation** of a place
@@ -41,7 +43,7 @@ pub struct PlaceRef<V: std::fmt::Debug> {
     pub ty_layout: TyAndLayout<LirTy>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 /// Represents a computed value or operand during code generation.
 ///
 /// `OperandRef` holds a value that can be used directly in computations,
@@ -56,7 +58,7 @@ pub struct OperandRef<V: std::fmt::Debug> {
     ///
     /// Provides size, alignment, and ABI information needed for correct
     /// code generation and backend handling.
-    ty_layout: TyAndLayout<LirTy>,
+    pub ty_layout: TyAndLayout<LirTy>,
 }
 
 impl<V: std::fmt::Debug> OperandRef<V> {
@@ -70,6 +72,29 @@ impl<V: std::fmt::Debug> OperandRef<V> {
     pub fn new_immediate(value: V, ty_layout: TyAndLayout<LirTy>) -> Self {
         OperandRef {
             operand_val: OperandVal::Immediate(value),
+            ty_layout,
+        }
+    }
+
+    pub fn new_const<'a, 'be, B: BuilderMethods<'a, 'be, Value = V>>(
+        builder: &mut B,
+        const_val: ConstValue,
+        lir_ty: LirTy,
+    ) -> Self {
+        let ty_layout = builder.ctx().layout_of(lir_ty);
+        let be_val = match const_val {
+            ConstValue::Scalar(const_scalar) => {
+                assert!(matches!(ty_layout.backend_repr, BackendRepr::Scalar(_)));
+                let be_val = builder.const_scalar_to_backend_value(const_scalar, ty_layout);
+                OperandVal::Immediate(be_val)
+            }
+            ConstValue::ZST => {
+                assert!(ty_layout.is_zst());
+                OperandVal::Zst
+            }
+        };
+        OperandRef {
+            operand_val: be_val,
             ty_layout,
         }
     }
@@ -100,7 +125,7 @@ impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceRef<V> {
         builder: &mut B,
         ty_and_layout: TyAndLayout<LirTy>,
     ) -> Self {
-        // TODO: Assert that the ty is not unsized (through `TyAndLayout`).
+        assert!(!ty_and_layout.is_zst());
         PlaceVal::alloca(
             builder,
             ty_and_layout.layout.size,
@@ -148,15 +173,12 @@ impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceVal<V> {
     }
 }
 
+#[derive(Debug)]
 /// A local reference in the LIR, representing a local variable or temporary
 /// during code generation.
 ///
 /// This enum is used to represent different kinds of local references
 /// that can be used in the backend code generation process.
-///
-/// `LocalRef` is a wrapper around `PlaceRef`, which provides
-/// a way to refer to local variables in a type-safe manner
-/// while also carrying the necessary metadata for code generation.
 ///
 /// From a source-level perspective, locals can be thought of as
 /// variables declared within a function scope.
@@ -174,8 +196,13 @@ pub enum LocalRef<V: std::fmt::Debug> {
     /// results in expressions.
     /// See [`tidec_lir::syntax::Operand`] for more details.
     OperandRef(OperandRef<V>),
+    /// A local that is yet to be assigned a value.
+    /// This is a placeholder for locals that will be initialized later.
+    /// It is used to represent uninitialized locals during code generation.
+    PendingOperandRef,
 }
 
+#[instrument(level = "debug", skip(ctx, lir_body))]
 /// Define (compile) a LIR function body into the backend representation.
 // It corresponds to the:
 // ```rust
@@ -222,7 +249,18 @@ pub fn codegen_lir_body<'a, 'be, B: BuilderMethods<'a, 'be>>(
             for (local, local_data) in locals.iter_enumerated() {
                 debug!("Allocating local {:?} of type {:?}", local, local_data.ty);
                 let layout = start_builder.ctx().layout_of(local_data.ty);
-                let local_ref = LocalRef::PlaceRef(PlaceRef::alloca(&mut start_builder, layout));
+
+                // Check if the local has to be stored in memory or can be an operand.
+                let local_ref = if layout.is_memory() {
+                    LocalRef::PlaceRef(PlaceRef::alloca(&mut start_builder, layout))
+                } else if layout.is_zst() {
+                    // ZSTs do not need to be allocated.
+                    LocalRef::OperandRef(OperandRef::new_zst(layout))
+                } else {
+                    LocalRef::PendingOperandRef
+                };
+
+                // let local_ref = LocalRef::PlaceRef(PlaceRef::alloca(&mut start_builder, layout));
                 local_allocas.push(local_ref);
             }
 

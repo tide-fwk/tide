@@ -2,9 +2,11 @@ use inkwell::context::Context;
 
 use tidec_codegen_ssa::{entry::compile_lir_unit, traits::CodegenMethods};
 use tidec_lir::lir::{LirTyCtx, LirUnit};
+use tracing::instrument;
 
 use crate::{builder::CodegenBuilder, context::CodegenCtx};
 
+#[instrument(level = "info", skip(lir_ty_ctx, lir_unit, print_ir), fields(unit = %lir_unit.metadata.unit_name))]
 // TODO(bruzzone): try to move it to `tidec_codegen_ssa`
 pub fn compile_codegen_unit<'ll>(lir_ty_ctx: LirTyCtx, lir_unit: LirUnit, print_ir: bool) {
     let ll_context = Context::create();
