@@ -80,6 +80,7 @@ fn main2() {
     println!("Alignment of i8: {}", align);
 }
 
+// TIDEC_LOG=debug cargo run; cc main.o -o a.out; ./a.out; echo $?
 fn main() {
     init_tidec_logger();
     debug!("Logging initialized");
