@@ -3,7 +3,7 @@ use crate::{
 };
 use tidec_abi::{
     layout::TyAndLayout,
-    target::{BackendKind, Target},
+    target::{BackendKind, LirTarget},
 };
 use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, instrument};
@@ -274,7 +274,7 @@ pub struct LirUnit {
 
 #[derive(Debug)]
 pub struct LirTyCtx {
-    target: Target,
+    target: LirTarget,
     // TODO(bruzzone): here we should have, other then an arena, also a HashMap from DefId
     // to the body of the function.
 }
@@ -282,13 +282,13 @@ pub struct LirTyCtx {
 impl LirTyCtx {
     #[instrument]
     pub fn new(codegen_backend: BackendKind) -> Self {
-        let target = Target::new(codegen_backend);
+        let target = LirTarget::new(codegen_backend);
         let ctx = LirTyCtx { target };
         debug!("LirTyCtx created: {:?}", ctx);
         ctx
     }
 
-    pub fn target(&self) -> &Target {
+    pub fn target(&self) -> &LirTarget {
         &self.target
     }
 

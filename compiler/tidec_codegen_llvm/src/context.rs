@@ -5,14 +5,14 @@ use std::ops::Deref;
 use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::targets::{TargetData, TargetTriple};
+use inkwell::targets::{InitializationConfig, Target, TargetData, TargetMachine, TargetTriple};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
 use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum, BasicValueEnum, FunctionValue};
 use tidec_abi::calling_convention::function::{ArgAbi, FnAbi, PassMode};
 use tidec_abi::layout::{BackendRepr, TyAndLayout};
 use tidec_codegen_ssa::lir;
 use tidec_lir::layout_ctx::LayoutCtx;
-use tidec_utils::{index_vec::IdxVec, idx::Idx};
+use tidec_utils::{idx::Idx, index_vec::IdxVec};
 use tracing::{debug, instrument};
 
 use crate::lir::lir_body_metadata::{
@@ -182,11 +182,24 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
         ll_context: &'ll Context,
         ll_module: Module<'ll>,
     ) -> CodegenCtx<'ll> {
-        let target = lir_ty_ctx.target();
-        let data_layout_string = target.data_layout_string();
-        let target_triple_string = target.target_triple_string();
+        let internal_target = lir_ty_ctx.target();
+        let data_layout_string = internal_target.data_layout_string();
+        let target_triple_string = internal_target.target_triple_string();
 
-        ll_module.set_triple(&TargetTriple::create(&target_triple_string));
+        match target_triple_string {
+            Some(ref s) => {
+                ll_module.set_triple(&TargetTriple::create(&s));
+                debug!("Using specified target triple: {:?}", s);
+            }
+            None => {
+                let default_triple = TargetMachine::get_default_triple();
+                ll_module.set_triple(&default_triple);
+                debug!(
+                    "No target triple specified, using default: {:?}",
+                    default_triple.as_str()
+                );
+            }
+        }
         // TODO: As TargetData contains methods to know the size, align, etc... for each LLVM type
         // we could consider to store it in a context
         ll_module.set_data_layout(&TargetData::create(&data_layout_string).get_data_layout());

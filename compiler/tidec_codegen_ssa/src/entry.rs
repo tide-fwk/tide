@@ -220,6 +220,7 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
 }
 
 #[instrument(skip(ctx, lir_unit))]
+// TODO: Move as a method of `CodegenCtx`? 
 pub fn compile_lir_unit<'a, 'be, B: BuilderMethods<'a, 'be>>(
     ctx: &'a B::CodegenCtx,
     lir_unit: LirUnit,
@@ -242,3 +243,5 @@ pub fn compile_lir_unit<'a, 'be, B: BuilderMethods<'a, 'be>>(
         ctx.define_body(lir_body);
     }
 }
+
+

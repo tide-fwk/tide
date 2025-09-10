@@ -8,7 +8,7 @@ use crate::size_and_align::{AbiAndPrefAlign, Size};
 /// This struct encapsulates information about the backend, data layout,
 /// and optional target triple. It is used to drive architecture- and
 /// platform-specific decisions throughout the compiler.
-pub struct Target {
+pub struct LirTarget {
     /// The codegen backend to use.
     pub codegen_backend: BackendKind,
     /// The data layout configuration for the target, including type alignments,
@@ -19,12 +19,12 @@ pub struct Target {
     ///
     /// If this is `None`, the target triple will not be set in the LLVM module,
     /// which may affect platform-specific codegen behavior or defaults.
-    target_triple: Option<TargetTriple>,
+    pub target_triple: Option<TargetTriple>,
 }
 
-impl Target {
+impl LirTarget {
     pub fn new(codegen_backend: BackendKind) -> Self {
-        Target {
+        LirTarget {
             data_layout: TargetDataLayout::new(),
             codegen_backend,
             target_triple: None,
@@ -43,27 +43,30 @@ impl Target {
 
     // TODO: make it better. Perhaps by using a specific TargetDataLayout for each
     // compiler backend.
-    pub fn target_triple_string(&self) -> String {
+    pub fn target_triple_string(&self) -> Option<String> {
         if self.target_triple.is_none() {
-            return String::new();
+            return None;
         }
 
         match self.codegen_backend {
-            BackendKind::Llvm => self
-                .target_triple
-                .as_ref()
-                .unwrap()
-                .into_llvm_triple_string(),
-            BackendKind::Cranelift => self
-                .target_triple
-                .as_ref()
-                .unwrap()
-                .into_cranelift_triple_string(),
-            BackendKind::Gcc => self
-                .target_triple
-                .as_ref()
-                .unwrap()
-                .into_gcc_triple_string(),
+            BackendKind::Llvm => Some(
+                self.target_triple
+                    .as_ref()
+                    .unwrap()
+                    .into_llvm_triple_string(),
+            ),
+            BackendKind::Cranelift => Some(
+                self.target_triple
+                    .as_ref()
+                    .unwrap()
+                    .into_cranelift_triple_string(),
+            ),
+            BackendKind::Gcc => Some(
+                self.target_triple
+                    .as_ref()
+                    .unwrap()
+                    .into_gcc_triple_string(),
+            ),
         }
     }
 }
