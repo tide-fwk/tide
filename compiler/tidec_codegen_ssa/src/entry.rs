@@ -125,9 +125,9 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
 
     pub fn codegen_rvalue(
         &mut self,
-        builder: &mut B,
-        place_ref: PlaceRef<B::Value>,
-        rvalue: &RValue,
+        _builder: &mut B,
+        _place_ref: PlaceRef<B::Value>,
+        _rvalue: &RValue,
     ) {
         todo!("Implement codegen_rvalue");
     }

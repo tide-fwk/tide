@@ -17,7 +17,7 @@ use tidec_abi::calling_convention::function::{ArgAbi, FnAbi, PassMode};
 use tidec_abi::layout::{BackendRepr, TyAndLayout};
 use tidec_codegen_ssa::lir;
 use tidec_lir::layout_ctx::LayoutCtx;
-use tidec_utils::{idx::Idx, index_vec::IdxVec};
+use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, instrument};
 
 use crate::lir::lir_body_metadata::{
@@ -28,7 +28,7 @@ use tidec_codegen_ssa::traits::{
     BuilderMethods, CodegenBackend, CodegenBackendTypes, CodegenMethods, DefineCodegenMethods,
     FnAbiOf, LayoutOf, PreDefineCodegenMethods,
 };
-use tidec_lir::lir::{DefId, LirBody, LirBodyMetadata, LirCtx, LirUnit};
+use tidec_lir::lir::{DefId, EmitKind, LirBody, LirBodyMetadata, LirCtx, LirUnit};
 use tidec_lir::syntax::{LirTy, Local, LocalData, RETURN_LOCAL};
 
 // TODO: Add filelds from rustc/compiler/rustc_codegen_llvm/src/context.rs
@@ -39,7 +39,7 @@ pub struct CodegenCtx<'ll> {
     pub ll_module: Module<'ll>,
 
     /// The LIR type context.
-    pub lir_ty_ctx: LirCtx,
+    pub lir_ctx: LirCtx,
 
     /// A map from DefId to the LLVM value (usually a function value).
     //
@@ -120,7 +120,7 @@ impl DefineCodegenMethods for CodegenCtx<'_> {
 
 impl LayoutOf for CodegenCtx<'_> {
     fn layout_of(&self, lir_ty: LirTy) -> TyAndLayout<LirTy> {
-        self.lir_ty_ctx.layout_of(lir_ty)
+        self.lir_ctx.layout_of(lir_ty)
     }
 }
 
@@ -181,13 +181,9 @@ impl<'ll> CodegenCtx<'ll> {
 }
 
 impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
-    #[instrument(skip(lir_ty_ctx, ll_context, ll_module))]
-    fn new(
-        lir_ty_ctx: LirCtx,
-        ll_context: &'ll Context,
-        ll_module: Module<'ll>,
-    ) -> CodegenCtx<'ll> {
-        let internal_target = lir_ty_ctx.target();
+    #[instrument(skip(lir_ctx, ll_context, ll_module))]
+    fn new(lir_ctx: LirCtx, ll_context: &'ll Context, ll_module: Module<'ll>) -> CodegenCtx<'ll> {
+        let internal_target = lir_ctx.target();
         {
             let target_triple_string = internal_target.target_triple_string();
             match target_triple_string {
@@ -215,13 +211,13 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
         CodegenCtx {
             ll_context,
             ll_module,
-            lir_ty_ctx,
+            lir_ctx,
             instances: RefCell::new(HashMap::new()),
         }
     }
 
-    fn lit_ty_ctx(&self) -> &LirCtx {
-        &self.lir_ty_ctx
+    fn lir_ctx(&self) -> &LirCtx {
+        &self.lir_ctx
     }
 
     #[instrument(skip(self, lir_unit))]
@@ -251,26 +247,42 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
     fn emit_output(&self) {
         assert_ne!(self.ll_module.get_triple(), TargetTriple::create(""));
 
-        Target::initialize_all(&InitializationConfig::default());
-        let triple = self.ll_module.get_triple();
-        let features = TargetMachine::get_host_cpu_features().to_string();
-        let cpu = TargetMachine::get_host_cpu_name().to_string();
-        let target = Target::from_triple(&triple).expect("Failed to get target from triple");
-        let target_machine = target
-            .create_target_machine(
-                &triple,
-                &cpu,
-                &features,
-                OptimizationLevel::Default,
-                RelocMode::Default,
-                CodeModel::Default,
-            )
-            .expect("Failed to create target machine");
-        let obj_path = format!("{}.o", self.ll_module.get_name().to_str().unwrap());
-        target_machine
-            .write_to_file(&self.ll_module, FileType::Object, Path::new(&obj_path))
-            .expect("Failed to write object file");
-        debug!("Wrote object file to {}", obj_path);
+        let target_machine = || {
+            Target::initialize_all(&InitializationConfig::default());
+            let triple = self.ll_module.get_triple();
+            let features = TargetMachine::get_host_cpu_features().to_string();
+            let cpu = TargetMachine::get_host_cpu_name().to_string();
+            let target = Target::from_triple(&triple).expect("Failed to get target from triple");
+            target
+                .create_target_machine(
+                    &triple,
+                    &cpu,
+                    &features,
+                    OptimizationLevel::Default,
+                    RelocMode::Default,
+                    CodeModel::Default,
+                )
+                .expect("Failed to create target machine")
+        };
+
+        match self.lir_ctx().emit_kind() {
+            EmitKind::Object => {
+                let target_machine = target_machine();
+                let obj_path = format!("{}.o", self.ll_module.get_name().to_str().unwrap());
+                target_machine
+                    .write_to_file(&self.ll_module, FileType::Object, Path::new(&obj_path))
+                    .expect("Failed to write object file");
+                debug!("Wrote object file to {}", obj_path);
+            }
+            EmitKind::Assembly => {
+                let target_machine = target_machine();
+                let asm_path = format!("{}.s", self.ll_module.get_name().to_str().unwrap());
+                target_machine
+                    .write_to_file(&self.ll_module, FileType::Assembly, Path::new(&asm_path))
+                    .expect("Failed to write assembly file");
+                debug!("Wrote assembly file to {}", asm_path);
+            }
+        }
     }
 
     fn get_fn(&self, lir_body_metadata: &LirBodyMetadata) -> Option<FunctionValue<'ll>> {

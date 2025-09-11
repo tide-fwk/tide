@@ -117,11 +117,6 @@ impl<I: Idx, T> IdxVec<I, T> {
     }
 
     #[inline]
-    pub fn into_iter(self) -> vec::IntoIter<T> {
-        self.raw.into_iter()
-    }
-
-    #[inline]
     pub fn into_iter_enumerated(
         self,
     ) -> impl DoubleEndedIterator<Item = (I, T)> + ExactSizeIterator {

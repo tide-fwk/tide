@@ -93,7 +93,7 @@ pub trait CodegenMethods<'be>:
     fn new(lir_ty_ctx: LirCtx, context: &'be Self::Context, module: Self::Module) -> Self;
 
     /// Return the LIR type context associated with this codegen context.
-    fn lit_ty_ctx(&self) -> &LirCtx;
+    fn lir_ctx(&self) -> &LirCtx;
 
     /// Compile the given LIR unit.
     fn compile_lir_unit<'a, B: BuilderMethods<'a, 'be>>(&self, lir_unit: LirUnit);
