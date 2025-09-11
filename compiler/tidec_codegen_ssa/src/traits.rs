@@ -4,7 +4,7 @@ use tidec_abi::{
     size_and_align::{Align, Size},
 };
 use tidec_lir::{
-    lir::{LirBody, LirBodyMetadata, LirTyCtx},
+    lir::{LirBody, LirBodyMetadata, LirCtx, LirUnit},
     syntax::{ConstScalar, LirTy, Local, LocalData},
 };
 use tidec_utils::index_vec::IdxVec;
@@ -22,7 +22,7 @@ pub trait FnAbiOf {
     /// Returns the function ABI for the given return type and argument types.
     fn fn_abi_of(
         &self,
-        lit_ty_ctx: &LirTyCtx,
+        lit_ty_ctx: &LirCtx,
         ret_and_args: &IdxVec<Local, LocalData>,
     ) -> FnAbi<LirTy>;
 }
@@ -90,10 +90,18 @@ pub trait CodegenMethods<'be>:
     + DefineCodegenMethods
 {
     /// Creates a new codegen context for the given LIR type context and module.
-    fn new(lir_ty_ctx: LirTyCtx, context: &'be Self::Context, module: Self::Module) -> Self;
+    fn new(lir_ty_ctx: LirCtx, context: &'be Self::Context, module: Self::Module) -> Self;
 
     /// Return the LIR type context associated with this codegen context.
-    fn lit_ty_ctx(&self) -> &LirTyCtx;
+    fn lit_ty_ctx(&self) -> &LirCtx;
+
+    /// Compile the given LIR unit.
+    fn compile_lir_unit<'a, B: BuilderMethods<'a, 'be>>(&self, lir_unit: LirUnit);
+
+    /// Emit the output of the codegen backend.
+    /// This could be writing to a file ASM, object file, or JIT execution.
+    /// The output format is backend-specific.
+    fn emit_output(&self);
 
     /// Returns the function value for the given LIR body if it exists.
     fn get_fn(&self, lir_body_metadata: &LirBodyMetadata) -> Option<Self::FunctionValue>;

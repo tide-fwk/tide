@@ -5,8 +5,8 @@ use crate::{
 use tidec_abi::calling_convention::function::{FnAbi, PassMode};
 use tidec_lir::{
     basic_blocks::{BasicBlock, BasicBlockData},
-    lir::{LirBody, LirUnit},
-    syntax::{LirTy, Local, RValue, Statement, Terminator, RETURN_LOCAL},
+    lir::LirBody,
+    syntax::{LirTy, Local, RETURN_LOCAL, RValue, Statement, Terminator},
 };
 use tidec_utils::index_vec::IdxVec;
 use tracing::{debug, info, instrument};
@@ -138,11 +138,9 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
         rvalue: &RValue,
     ) -> OperandRef<B::Value> {
         match rvalue {
-            RValue::Const(const_operand) => OperandRef::new_const(
-                builder,
-                const_operand.value(),
-                const_operand.ty(),
-            ),
+            RValue::Const(const_operand) => {
+                OperandRef::new_const(builder, const_operand.value(), const_operand.ty())
+            }
         }
     }
 
@@ -183,7 +181,6 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
                 }
             }
         };
-        
 
         builder.build_return(Some(be_val));
     }
@@ -218,30 +215,3 @@ impl<'ctx, 'll, B: BuilderMethods<'ctx, 'll>> FnCtx<'ctx, 'll, B> {
         // bx.load_operand(place)
     }
 }
-
-#[instrument(skip(ctx, lir_unit))]
-// TODO: Move as a method of `CodegenCtx`? 
-pub fn compile_lir_unit<'a, 'be, B: BuilderMethods<'a, 'be>>(
-    ctx: &'a B::CodegenCtx,
-    lir_unit: LirUnit,
-) {
-    // Predefine the functions. That is, create the function declarations.
-    for lir_body in &lir_unit.bodies {
-        ctx.predefine_body(&lir_body.metadata, &lir_body.ret_and_args);
-    }
-
-    // Now that all functions are pre-defined, we can compile the bodies.
-    for lir_body in &lir_unit.bodies {
-        // It corresponds to:
-        // ```rust
-        // for &(mono_item, item_data) in &mono_items {
-        //     mono_item.define::<Builder<'_, '_, '_>>(&mut cx, cgu_name.as_str(), item_data);
-        // }
-        // ```
-        // in rustc_codegen_llvm/src/base.rs
-        // lir::define_lir_body::<B>(ctx, lir_body);
-        ctx.define_body(lir_body);
-    }
-}
-
-

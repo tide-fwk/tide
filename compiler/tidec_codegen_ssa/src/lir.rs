@@ -154,6 +154,7 @@ pub struct PlaceVal<V: std::fmt::Debug> {
     /// especially for aligned loads/stores and optimizations.
     pub align: Align,
 }
+
 impl<'a, 'be, V: Copy + PartialEq + std::fmt::Debug> PlaceVal<V> {
     pub fn alloca<B: BuilderMethods<'a, 'be, Value = V>>(
         builder: &mut B,

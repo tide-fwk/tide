@@ -1,11 +1,15 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
+use std::path::Path;
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::targets::{InitializationConfig, Target, TargetData, TargetMachine, TargetTriple};
+use inkwell::targets::{
+    CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetData, TargetMachine,
+    TargetTriple,
+};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
 use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum, BasicValueEnum, FunctionValue};
 use tidec_abi::calling_convention::function::{ArgAbi, FnAbi, PassMode};
@@ -20,10 +24,10 @@ use crate::lir::lir_body_metadata::{
 };
 use crate::lir::lir_ty::BasicTypesUtils;
 use tidec_codegen_ssa::traits::{
-    CodegenBackend, CodegenBackendTypes, CodegenMethods, DefineCodegenMethods, FnAbiOf, LayoutOf,
-    PreDefineCodegenMethods,
+    BuilderMethods, CodegenBackend, CodegenBackendTypes, CodegenMethods, DefineCodegenMethods,
+    FnAbiOf, LayoutOf, PreDefineCodegenMethods,
 };
-use tidec_lir::lir::{DefId, LirBody, LirBodyMetadata, LirTyCtx};
+use tidec_lir::lir::{DefId, LirBody, LirBodyMetadata, LirCtx, LirUnit};
 use tidec_lir::syntax::{LirTy, Local, LocalData, RETURN_LOCAL};
 
 // TODO: Add filelds from rustc/compiler/rustc_codegen_llvm/src/context.rs
@@ -34,7 +38,7 @@ pub struct CodegenCtx<'ll> {
     pub ll_module: Module<'ll>,
 
     /// The LIR type context.
-    pub lir_ty_ctx: LirTyCtx,
+    pub lir_ty_ctx: LirCtx,
 
     /// A map from DefId to the LLVM value (usually a function value).
     //
@@ -123,7 +127,7 @@ impl FnAbiOf for CodegenCtx<'_> {
     #[instrument(level = "debug", skip(self, lir_ty_ctx))]
     fn fn_abi_of(
         &self,
-        lir_ty_ctx: &LirTyCtx,
+        lir_ty_ctx: &LirCtx,
         lir_ret_and_args: &IdxVec<Local, LocalData>,
     ) -> FnAbi<LirTy> {
         let layout_ctx = LayoutCtx::new(lir_ty_ctx);
@@ -178,7 +182,7 @@ impl<'ll> CodegenCtx<'ll> {
 impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
     #[instrument(skip(lir_ty_ctx, ll_context, ll_module))]
     fn new(
-        lir_ty_ctx: LirTyCtx,
+        lir_ty_ctx: LirCtx,
         ll_context: &'ll Context,
         ll_module: Module<'ll>,
     ) -> CodegenCtx<'ll> {
@@ -212,8 +216,55 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
         }
     }
 
-    fn lit_ty_ctx(&self) -> &LirTyCtx {
+    fn lit_ty_ctx(&self) -> &LirCtx {
         &self.lir_ty_ctx
+    }
+
+    #[instrument(skip(self, lir_unit))]
+    // TODO: Move as a method of `CodegenCtx`?
+    fn compile_lir_unit<'a, B: BuilderMethods<'a, 'll>>(&self, lir_unit: LirUnit) {
+        // Predefine the functions. That is, create the function declarations.
+        for lir_body in &lir_unit.bodies {
+            self.predefine_body(&lir_body.metadata, &lir_body.ret_and_args);
+        }
+
+        // Now that all functions are pre-defined, we can compile the bodies.
+        for lir_body in &lir_unit.bodies {
+            // It corresponds to:
+            // ```rust
+            // for &(mono_item, item_data) in &mono_items {
+            //     mono_item.define::<Builder<'_, '_, '_>>(&mut cx, cgu_name.as_str(), item_data);
+            // }
+            // ```
+            // in rustc_codegen_llvm/src/base.rs
+            // lir::define_lir_body::<B>(ctx, lir_body);
+            self.define_body(lir_body);
+        }
+
+        debug!("\n{}", self.ll_module.print_to_string().to_string());
+    }
+
+    fn emit_output(&self) {
+        Target::initialize_all(&InitializationConfig::default());
+        let triple = TargetMachine::get_default_triple();
+        let target = Target::from_triple(&triple).expect("Failed to get target from triple");
+        let cpu = TargetMachine::get_host_cpu_name().to_string();
+        let features = TargetMachine::get_host_cpu_features().to_string();
+        let target_machine = target
+            .create_target_machine(
+                &triple,
+                &cpu,
+                &features,
+                inkwell::OptimizationLevel::Default,
+                RelocMode::Default,
+                CodeModel::Default,
+            )
+            .expect("Failed to create target machine");
+        let obj_path = format!("{}.o", self.ll_module.get_name().to_str().unwrap());
+        target_machine
+            .write_to_file(&self.ll_module, FileType::Object, Path::new(&obj_path))
+            .expect("Failed to write object file");
+        debug!("Wrote object file to {}", obj_path);
     }
 
     fn get_fn(&self, lir_body_metadata: &LirBodyMetadata) -> Option<FunctionValue<'ll>> {
