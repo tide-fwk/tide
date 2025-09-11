@@ -35,9 +35,9 @@ impl LirTarget {
     // compiler backend.
     pub fn data_layout_string(&self) -> String {
         match self.codegen_backend {
-            BackendKind::Llvm => self.data_layout.into_llvm_datalayout_string(),
-            BackendKind::Cranelift => self.data_layout.into_cranelift_datalayout_string(),
-            BackendKind::Gcc => self.data_layout.into_gcc_datalayout_string(),
+            BackendKind::Llvm => self.data_layout.as_llvm_datalayout_string(),
+            BackendKind::Cranelift => self.data_layout.as_cranelift_datalayout_string(),
+            BackendKind::Gcc => self.data_layout.as_gcc_datalayout_string(),
         }
     }
 
@@ -162,7 +162,7 @@ impl TargetDataLayout {
 
     /// For example, for x86_64-unknown-linux-gnu, the data layout string could be:
     /// `e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128`
-    pub fn into_llvm_datalayout_string(&self) -> String {
+    pub fn as_llvm_datalayout_string(&self) -> String {
         let format_align = |name: &str, align: &AbiAndPrefAlign| {
             format!("-{}:{}:{}", name, align.abi.bytes(), align.pref.bytes())
         };
@@ -217,11 +217,11 @@ impl TargetDataLayout {
         s
     }
 
-    fn into_cranelift_datalayout_string(&self) -> String {
+    fn as_cranelift_datalayout_string(&self) -> String {
         unimplemented!()
     }
 
-    fn into_gcc_datalayout_string(&self) -> String {
+    fn as_gcc_datalayout_string(&self) -> String {
         unimplemented!()
     }
 

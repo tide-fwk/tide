@@ -64,10 +64,7 @@ impl Layout {
     }
 
     pub fn is_memory(&self) -> bool {
-        match self.backend_repr {
-            BackendRepr::Memory => true,
-            _ => false,
-        }
+        matches!(self.backend_repr, BackendRepr::Memory)
     }
 }
 

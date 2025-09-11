@@ -3,7 +3,6 @@ use std::num::NonZero;
 //
 use tidec_abi::target::BackendKind;
 use tidec_codegen_llvm::entry::llvm_codegen_lir_unit;
-use tidec_codegen_ssa::traits::CodegenMethods;
 use tidec_lir::basic_blocks::BasicBlockData;
 use tidec_lir::lir::{
     CallConv, DefId, EmitKind, Linkage, LirBody, LirBodyKind, LirBodyMetadata, LirCtx, LirItemKind,

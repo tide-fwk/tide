@@ -5,13 +5,13 @@ use tidec_abi::{
 };
 
 pub struct LayoutCtx<'a> {
-    lir_ty_ctx: &'a LirCtx,
+    _lir_ty_ctx: &'a LirCtx,
 }
 
 impl<'a> LayoutCtx<'a> {
     // It accepts the `LirTyCtx` because it contains the `TargetDataLayout`.
     pub fn new(lir_ty_ctx: &'a LirCtx) -> Self {
-        LayoutCtx { lir_ty_ctx }
+        LayoutCtx { _lir_ty_ctx: lir_ty_ctx }
     }
 
     /// Computes the layout for a given type. We should cache the results

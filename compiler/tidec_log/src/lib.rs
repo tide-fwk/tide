@@ -3,12 +3,10 @@
 //! The allowed environment variables are:
 //! - `<PREFIX>_LOG`: The log level. This can be "debug", "info", "warn", "error", or "trace".
 //! - `<PREFIX>_LOG_COLOR`: The color setting. This can be "always", "never", or "auto".
-//! - `<PREFIX>_LOG_WRITER`: The log writer. This can be "stdout", "stderr", or a file path. If the
-//! file path does not exist, it will be created.
-//! - `<PREFIX>_LOG_LINE_NUMBERS`: Whether to show line numbers in the log. This can be "1" or
-//! "0".
-//! The `<PREFIX>` is a prefix that can be set to any string. It is used to customize the log
-//! configuration for different tools. For example, `tidec` uses `TIDEC` as the prefix.
+//! - `<PREFIX>_LOG_WRITER`: The log writer. This can be "stdout", "stderr", or a file path. If the file path does not exist, it will be created.
+//! - `<PREFIX>_LOG_LINE_NUMBERS`: Whether to show line numbers in the log. This can be "1" or "0".
+//!
+//! The `<PREFIX>` is a prefix that can be set to any string. It is used to customize the log configuration for different tools. For example, `tidec` uses `TIDEC` as the prefix.
 //!
 //!
 //! Suppose you're working on `tidec_lir` and want to run a minimal standalone
@@ -24,13 +22,10 @@
 //! And in your `main.rs`:
 //!
 //! ```rust
-//! fn main() {
-//!     let _ = tidec_log::Logger::init_logger(
-//!         tidec_log::LoggerConfig::from_prefix("TIDEC").unwrap(),
-//!         tidec_log::FallbackDefaultEnv::Yes
-//!     );
-//!     // Your test code using tidec_lir...
-//! }
+//! let _ = tidec_log::Logger::init_logger(
+//!     tidec_log::LoggerConfig::from_prefix("TIDEC").unwrap(),
+//!     tidec_log::FallbackDefaultEnv::Yes
+//! );
 //! ```
 //!
 //! Then run your program with:
@@ -194,9 +189,7 @@ impl Logger {
             .with(filter)
             .with(layer);
 
-        let _ = subscriber
-            .try_init()
-            .map_err(LogError::TryInitError);
+        let _ = subscriber.try_init().map_err(LogError::TryInitError);
 
         Ok(())
     }

@@ -318,4 +318,8 @@ impl LirCtx {
     pub fn backend_kind(&self) -> &BackendKind {
         &self.target.codegen_backend
     }
+
+    pub fn emit_kind(&self) -> &EmitKind {
+        &self.arguments.emit_kind
+    }
 }
