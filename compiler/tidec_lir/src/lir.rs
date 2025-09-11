@@ -1,5 +1,7 @@
 use crate::{
-    basic_blocks::{BasicBlock, BasicBlockData}, layout_ctx::LayoutCtx, syntax::{Body, LirTy, Local, LocalData}
+    basic_blocks::{BasicBlock, BasicBlockData},
+    layout_ctx::LayoutCtx,
+    syntax::{Body, LirTy, Local, LocalData},
 };
 use tidec_abi::{
     layout::TyAndLayout,
@@ -238,7 +240,7 @@ pub struct LirBodyMetadata {
 }
 
 /// The body of a function in LIR. A body could be a function, a closure, a coroutine, etc.
-/// A body is expected to be monomorphized and specialized, that is, when generic parameters are 
+/// A body is expected to be monomorphized and specialized, that is, when generic parameters are
 /// involved, each instantiation of the generics should have its own body.
 ///
 /// Semantically, a body is a portion of code that constitutes a complete unit of execution.
@@ -273,17 +275,33 @@ pub struct LirUnit {
 }
 
 #[derive(Debug)]
-pub struct LirTyCtx {
+/// The kind of code to emit.
+pub enum EmitKind {
+    Object,
+    Assembly,
+}
+
+#[derive(Debug)]
+/// The arguments for LIR type context. Usually provided by the user.
+pub struct LirArgs {
+    pub emit_kind: EmitKind,
+    // TODO(bruzzone): add more arguments here
+}
+
+#[derive(Debug)]
+pub struct LirCtx {
     target: LirTarget,
+    arguments: LirArgs,
     // TODO(bruzzone): here we should have, other then an arena, also a HashMap from DefId
     // to the body of the function.
 }
 
-impl LirTyCtx {
+impl LirCtx {
     #[instrument]
-    pub fn new(codegen_backend: BackendKind) -> Self {
+    pub fn new(codegen_backend: BackendKind, emit_kind: EmitKind) -> Self {
         let target = LirTarget::new(codegen_backend);
-        let ctx = LirTyCtx { target };
+        let arguments = LirArgs { emit_kind };
+        let ctx = LirCtx { target, arguments };
         debug!("LirTyCtx created: {:?}", ctx);
         ctx
     }
@@ -295,5 +313,9 @@ impl LirTyCtx {
     pub fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy> {
         let layout_ctx = LayoutCtx::new(&self);
         layout_ctx.compute_layout(ty)
+    }
+
+    pub fn backend_kind(&self) -> &BackendKind {
+        &self.target.codegen_backend
     }
 }

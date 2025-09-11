@@ -1,16 +1,16 @@
-use crate::lir::LirTyCtx;
+use crate::lir::LirCtx;
 use tidec_abi::{
     layout::{BackendRepr, Layout, Primitive, TyAndLayout},
     size_and_align::{AbiAndPrefAlign, Size},
 };
 
 pub struct LayoutCtx<'a> {
-    lir_ty_ctx: &'a LirTyCtx,
+    lir_ty_ctx: &'a LirCtx,
 }
 
 impl<'a> LayoutCtx<'a> {
     // It accepts the `LirTyCtx` because it contains the `TargetDataLayout`.
-    pub fn new(lir_ty_ctx: &'a LirTyCtx) -> Self {
+    pub fn new(lir_ty_ctx: &'a LirCtx) -> Self {
         LayoutCtx { lir_ty_ctx }
     }
 
