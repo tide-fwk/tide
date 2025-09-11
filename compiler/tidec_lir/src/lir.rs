@@ -13,6 +13,7 @@ use tracing::{debug, instrument};
 #[derive(Eq, PartialEq, Hash, Clone, Copy)]
 pub struct DefId(pub usize);
 
+#[derive(Clone, Copy)]
 /// Specifies the linkage of a symbol.
 /// All Global Variables and Functions have one of the following types of linkage.
 ///
@@ -78,6 +79,7 @@ pub enum Linkage {
     External,
 }
 
+#[derive(Clone, Copy)]
 /// Specifies the symbol visibility with regards to dynamic linking.
 /// All Global Variables and Functions have one of the following visibility styles.
 ///
@@ -112,6 +114,7 @@ pub enum LirItemKind {
     Coroutine,
 }
 
+#[derive(Clone, Copy)]
 /// Specifies the significance of a global value's address, used for enabling
 /// optimizations related to constant merging and deduplication.
 ///
