@@ -71,7 +71,7 @@ impl<I: Idx, T> IdxVec<I, T> {
     /// ensures that `uses` is an `IdxVec<Local, _>`, and thus can give
     /// better error messages later if one accidentally mismatches indices.
     #[inline]
-    pub fn from_elem<S>(elem: T, universe: &IdxSlice<I, S>) -> Self 
+    pub fn from_elem<S>(elem: T, universe: &IdxSlice<I, S>) -> Self
     where
         T: Clone,
     {

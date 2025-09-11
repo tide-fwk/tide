@@ -180,5 +180,3 @@ pub trait BuilderMethods<'a, 'be>: Sized + CodegenBackendTypes {
         ty_layout: TyAndLayout<LirTy>,
     ) -> Self::Value;
 }
-
-

@@ -6,8 +6,6 @@ use crate::syntax::{Statement, Terminator};
 pub struct BasicBlock(usize);
 pub const ENTRY_BLOCK: BasicBlock = BasicBlock(0);
 
-
-
 #[derive(Debug)]
 /// The data of a basic block.
 ///
