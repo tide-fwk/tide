@@ -6,7 +6,7 @@ use tidec_lir::lir;
 /// We need to do this due to the orphan rule in Rust. This could cause the
 /// stop of the compilation process of an external crate.
 pub trait LinkageUtils {
-    fn into_linkage(&self) -> Linkage;
+    fn into_linkage(self) -> Linkage;
 }
 
 /// A trait to convert LirVisibility into LLVM Visibility (GlobalVisibility).
@@ -14,7 +14,7 @@ pub trait LinkageUtils {
 /// We need to do this due to the orphan rule in Rust. This could cause the
 /// stop of the compilation process of an external crate.
 pub trait VisibilityUtils {
-    fn into_visibility(&self) -> GlobalVisibility;
+    fn into_visibility(self) -> GlobalVisibility;
 }
 
 /// A trait to convert LirCallConv into LLVM CallConv (u32).
@@ -30,11 +30,11 @@ pub trait CallConvUtils {
 /// We need to do this due to the orphan rule in Rust. This could cause the
 /// stop of the compilation process of an external crate.
 pub trait UnnamedAddressUtils {
-    fn into_unnamed_address(&self) -> UnnamedAddress;
+    fn into_unnamed_address(self) -> UnnamedAddress;
 }
 
 impl LinkageUtils for lir::Linkage {
-    fn into_linkage(&self) -> Linkage {
+    fn into_linkage(self) -> Linkage {
         match self {
             lir::Linkage::Private => Linkage::LinkerPrivate,
             lir::Linkage::Internal => Linkage::Internal,
@@ -52,7 +52,7 @@ impl LinkageUtils for lir::Linkage {
 }
 
 impl VisibilityUtils for lir::Visibility {
-    fn into_visibility(&self) -> GlobalVisibility {
+    fn into_visibility(self) -> GlobalVisibility {
         match self {
             lir::Visibility::Default => GlobalVisibility::Default,
             lir::Visibility::Hidden => GlobalVisibility::Hidden,
@@ -68,7 +68,7 @@ impl CallConvUtils for lir::CallConv {
 }
 
 impl UnnamedAddressUtils for lir::UnnamedAddress {
-    fn into_unnamed_address(&self) -> UnnamedAddress {
+    fn into_unnamed_address(self) -> UnnamedAddress {
         match self {
             lir::UnnamedAddress::None => UnnamedAddress::None,
             lir::UnnamedAddress::Local => UnnamedAddress::Local,

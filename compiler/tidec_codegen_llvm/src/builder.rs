@@ -1,8 +1,6 @@
 use std::ops::Deref;
 
-use inkwell::values::{
-    BasicValue, BasicValueEnum, FunctionValue,
-};
+use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue};
 use inkwell::{basic_block::BasicBlock, builder::Builder};
 use tidec_abi::layout::{BackendRepr, Primitive, TyAndLayout};
 use tidec_abi::size_and_align::{Align, Size};
@@ -142,7 +140,6 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
             }
 
             let llval = ll_global_const.unwrap_or_else(|| {
-                
                 // TODO: Here we should call:
                 //
                 // 1) scalar_load_metadata(...)
