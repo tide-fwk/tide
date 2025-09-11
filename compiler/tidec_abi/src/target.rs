@@ -44,9 +44,7 @@ impl LirTarget {
     // TODO: make it better. Perhaps by using a specific TargetDataLayout for each
     // compiler backend.
     pub fn target_triple_string(&self) -> Option<String> {
-        if self.target_triple.is_none() {
-            return None;
-        }
+        self.target_triple.as_ref()?;
 
         match self.codegen_backend {
             BackendKind::Llvm => Some(

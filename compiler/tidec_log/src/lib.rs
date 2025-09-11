@@ -196,8 +196,7 @@ impl Logger {
 
         let _ = subscriber
             .try_init()
-            .map_err(|e| LogError::TryInitError(e))
-            .map_err(|e| e);
+            .map_err(LogError::TryInitError);
 
         Ok(())
     }

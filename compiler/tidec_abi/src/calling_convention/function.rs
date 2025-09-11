@@ -1,4 +1,4 @@
-use crate::layout::{self, Layout, TyAndLayout};
+use crate::layout::TyAndLayout;
 
 /// Describes the full application binary interface (ABI) of a function.
 ///

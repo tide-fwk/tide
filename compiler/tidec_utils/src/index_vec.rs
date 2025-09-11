@@ -7,7 +7,7 @@ use crate::index_slice::IdxSlice;
 use std::{
     borrow::{Borrow, BorrowMut},
     marker::PhantomData,
-    ops::{Deref, DerefMut, Index, IndexMut, RangeBounds},
+    ops::{Deref, DerefMut, RangeBounds},
     slice, vec,
 };
 
@@ -28,6 +28,12 @@ use std::{
 pub struct IdxVec<I: Idx, T> {
     _marker: PhantomData<I>,
     pub raw: Vec<T>,
+}
+
+impl<I: Idx, T> Default for IdxVec<I, T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<I: Idx, T> IdxVec<I, T> {

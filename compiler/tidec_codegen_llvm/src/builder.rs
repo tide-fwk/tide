@@ -1,10 +1,7 @@
 use std::ops::Deref;
 
-use inkwell::llvm_sys::core::{LLVMIsAGlobalVariable, LLVMIsGlobalConstant};
-use inkwell::llvm_sys::prelude::LLVMBool;
-use inkwell::types::BasicTypeEnum;
 use inkwell::values::{
-    AnyValueEnum, AsValueRef, BasicValue, BasicValueEnum, FunctionValue, GlobalValue,
+    BasicValue, BasicValueEnum, FunctionValue,
 };
 use inkwell::{basic_block::BasicBlock, builder::Builder};
 use tidec_abi::layout::{BackendRepr, Primitive, TyAndLayout};
@@ -12,7 +9,7 @@ use tidec_abi::size_and_align::{Align, Size};
 use tidec_codegen_ssa::lir::{OperandRef, PlaceRef};
 use tidec_codegen_ssa::traits::{BuilderMethods, CodegenBackendTypes};
 use tidec_lir::syntax::{ConstScalar, LirTy};
-use tracing::{info, instrument};
+use tracing::instrument;
 
 use crate::context::CodegenCtx;
 use crate::lir::lir_ty::BasicTypesUtils;
@@ -145,8 +142,7 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
             }
 
             let llval = ll_global_const.unwrap_or_else(|| {
-                let loaded_val =
-                    self.build_load(llty, place_ref.place_val.value, place_ref.place_val.align);
+                
                 // TODO: Here we should call:
                 //
                 // 1) scalar_load_metadata(...)
@@ -159,7 +155,7 @@ impl<'a, 'll> BuilderMethods<'a, 'll> for CodegenBuilder<'a, 'll> {
                 // Converts the loaded LLVM value (load) into an immediate scalar representation in Tide’s codegen world.
                 // Why? Because some scalars (e.g., booleans) need normalization: Tide booleans are guaranteed to be 0 or 1,
                 // but LLVM might treat them as any non-zero integer. to_immediate_scalar ensures consistency with Tide’s semantics.
-                loaded_val
+                self.build_load(llty, place_ref.place_val.value, place_ref.place_val.align)
             });
 
             OperandRef::new_immediate(llval, place_ref.ty_layout)

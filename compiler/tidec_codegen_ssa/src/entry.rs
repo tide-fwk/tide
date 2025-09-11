@@ -13,7 +13,7 @@ use tracing::{debug, info, instrument};
 
 use crate::{
     lir::{LocalRef, OperandRef},
-    traits::{BuilderMethods, DefineCodegenMethods, PreDefineCodegenMethods},
+    traits::BuilderMethods,
 };
 
 pub struct FnCtx<'a, 'be, B: BuilderMethods<'a, 'be>> {

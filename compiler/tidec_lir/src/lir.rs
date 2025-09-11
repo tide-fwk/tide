@@ -311,7 +311,7 @@ impl LirCtx {
     }
 
     pub fn layout_of(&self, ty: LirTy) -> TyAndLayout<LirTy> {
-        let layout_ctx = LayoutCtx::new(&self);
+        let layout_ctx = LayoutCtx::new(self);
         layout_ctx.compute_layout(ty)
     }
 
