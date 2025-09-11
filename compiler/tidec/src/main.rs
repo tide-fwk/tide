@@ -1,15 +1,8 @@
 use std::num::NonZero;
 // #[macro_use] extern crate tidec_utils;
 //
-use inkwell::context::Context;
-use inkwell::types::BasicType;
-use std::path::Path;
 use tidec_abi::target::BackendKind;
-use tidec_codegen_llvm::builder::CodegenBuilder;
-use tidec_codegen_llvm::context::CodegenCtx;
 use tidec_codegen_llvm::entry::llvm_codegen_lir_unit;
-use tidec_codegen_llvm::lir::lir_ty::BasicTypesUtils;
-use tidec_codegen_ssa::traits::BuilderMethods;
 use tidec_codegen_ssa::traits::CodegenMethods;
 use tidec_lir::basic_blocks::BasicBlockData;
 use tidec_lir::lir::{

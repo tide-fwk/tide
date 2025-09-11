@@ -192,7 +192,7 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
             let target_triple_string = internal_target.target_triple_string();
             match target_triple_string {
                 Some(ref s) => {
-                    ll_module.set_triple(&TargetTriple::create(&s));
+                    ll_module.set_triple(&TargetTriple::create(s));
                     debug!("Using specified target triple: {:?}", s);
                 }
                 None => {

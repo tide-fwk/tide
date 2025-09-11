@@ -9,7 +9,7 @@ use tidec_abi::{
     size_and_align::{Align, Size},
 };
 use tidec_lir::basic_blocks::ENTRY_BLOCK;
-use tidec_lir::syntax::{ConstOperand, ConstValue};
+use tidec_lir::syntax::ConstValue;
 use tidec_lir::{
     lir::LirBody,
     syntax::{LirTy, Local, LocalData},
