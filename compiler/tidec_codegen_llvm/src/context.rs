@@ -12,6 +12,7 @@ use inkwell::targets::{
 };
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
 use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum, BasicValueEnum, FunctionValue};
+use inkwell::OptimizationLevel;
 use tidec_abi::calling_convention::function::{ArgAbi, FnAbi, PassMode};
 use tidec_abi::layout::{BackendRepr, TyAndLayout};
 use tidec_codegen_ssa::lir;
@@ -187,26 +188,29 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
         ll_module: Module<'ll>,
     ) -> CodegenCtx<'ll> {
         let internal_target = lir_ty_ctx.target();
-        let data_layout_string = internal_target.data_layout_string();
-        let target_triple_string = internal_target.target_triple_string();
-
-        match target_triple_string {
-            Some(ref s) => {
-                ll_module.set_triple(&TargetTriple::create(&s));
-                debug!("Using specified target triple: {:?}", s);
-            }
-            None => {
-                let default_triple = TargetMachine::get_default_triple();
-                ll_module.set_triple(&default_triple);
-                debug!(
-                    "No target triple specified, using default: {:?}",
-                    default_triple.as_str()
-                );
+        {
+            let target_triple_string = internal_target.target_triple_string();
+            match target_triple_string {
+                Some(ref s) => {
+                    ll_module.set_triple(&TargetTriple::create(&s));
+                    debug!("Using specified target triple: {:?}", s);
+                }
+                None => {
+                    let default_triple = TargetMachine::get_default_triple();
+                    ll_module.set_triple(&default_triple);
+                    debug!(
+                        "No target triple specified, using default: {:?}",
+                        default_triple.as_str()
+                    );
+                }
             }
         }
-        // TODO: As TargetData contains methods to know the size, align, etc... for each LLVM type
-        // we could consider to store it in a context
-        ll_module.set_data_layout(&TargetData::create(&data_layout_string).get_data_layout());
+        {
+            // TODO: As TargetData contains methods to know the size, align, etc... for each LLVM type
+            // we could consider to store it in a context
+            let data_layout_string = internal_target.data_layout_string();
+            ll_module.set_data_layout(&TargetData::create(&data_layout_string).get_data_layout());
+        }
 
         CodegenCtx {
             ll_context,
@@ -245,17 +249,19 @@ impl<'ll> CodegenMethods<'ll> for CodegenCtx<'ll> {
     }
 
     fn emit_output(&self) {
+        assert_ne!(self.ll_module.get_triple(), TargetTriple::create(""));
+
         Target::initialize_all(&InitializationConfig::default());
-        let triple = TargetMachine::get_default_triple();
-        let target = Target::from_triple(&triple).expect("Failed to get target from triple");
-        let cpu = TargetMachine::get_host_cpu_name().to_string();
+        let triple = self.ll_module.get_triple();
         let features = TargetMachine::get_host_cpu_features().to_string();
+        let cpu = TargetMachine::get_host_cpu_name().to_string();
+        let target = Target::from_triple(&triple).expect("Failed to get target from triple");
         let target_machine = target
             .create_target_machine(
                 &triple,
                 &cpu,
                 &features,
-                inkwell::OptimizationLevel::Default,
+                OptimizationLevel::Default,
                 RelocMode::Default,
                 CodeModel::Default,
             )

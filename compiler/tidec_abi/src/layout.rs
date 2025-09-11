@@ -107,7 +107,9 @@ impl BackendRepr {
         match self {
             BackendRepr::Scalar(p) => *p,
             // BackendRepr::ScalarPair(p1, p2) => Some((*p1, *p2)),
-            BackendRepr::Memory => panic!("Memory backend representation does not have a primitive type"),
+            BackendRepr::Memory => {
+                panic!("Memory backend representation does not have a primitive type")
+            }
         }
     }
 }
