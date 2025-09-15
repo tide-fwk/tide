@@ -8,6 +8,7 @@ This repository follows the [standard-commit](https://github.com/standard-commit
 - M. Elsman, PLDI'24 - [Garbage-Collection Safety for Region-Based Type-Polymorphic Programs][Garbage-Collection Safety for Region-Based Type-Polymorphic Programs]
 - M. Elsman, PLDI'23 - [Parallelism in a Region Inference Context][Parallelism in a Region Inference Context]
 - C. Lattner, V. Adve, PLDI'05 - [Automatic Pool Allocation: Improving Performance by Controlling Data Structure Layout in the Heap][Automatic Pool Allocation: Improving Performance by Controlling Data Structure Layout in the Heap]
+- D. Dhurjati, S. Kowshik, V. Adve, C. Lattner, TECS'05 - [Memory safety without garbage collection for embedded applications][Memory safety without garbage collection for embedded applications]
 - M. Rinard, PLDI'04 - [Region Inference for an Object-Oriented Language][Region Inference for an Object-Oriented Language]
 - C. Lattner, V. Adve, LCTES'03 - [Memory safety without runtime checks or garbage collection][Memory safety without runtime checks or garbage collection]
 - V. Adve, CASES'02 - [Ensuring code safety without runtime checks for real-time control systems][Ensuring code safety without runtime checks for real-time control systems]
@@ -36,6 +37,7 @@ This repository follows the [standard-commit](https://github.com/standard-commit
 [Garbage-Collection Safety for Region-Based Type-Polymorphic Programs]: https://dl.acm.org/doi/pdf/10.1145/3591229
 [Parallelism in a Region Inference Context]: https://dl.acm.org/doi/abs/10.1145/3591256
 [Automatic Pool Allocation: Improving Performance by Controlling Data Structure Layout in the Heap]: https://dl.acm.org/doi/pdf/10.1145/1064978.1065027
+[Memory safety without garbage collection for embedded applications]: https://dl.acm.org/doi/abs/10.1145/1053271.1053275
 [Region Inference for an Object-Oriented Language]: https://dl.acm.org/doi/pdf/10.1145/996893.996871
 [Memory safety without runtime checks or garbage collection]: https://dl.acm.org/doi/abs/10.1145/780732.780743
 [Ensuring code safety without runtime checks for real-time control systems]: https://dl.acm.org/doi/abs/10.1145/581630.581678
