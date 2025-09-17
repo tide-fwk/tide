@@ -41,15 +41,15 @@ jobs:
         if: runner.os == 'Windows'
         run: choco install cmake ninja
 
-      - name: Cache LLVM
-        id: cache-llvm
-        uses: actions/cache@v4
+      - name: Restore LLVM cache
+        id: cache-llvm-restore
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.LLVM_INSTALL_PATH }}
           key: ${{ runner.os }}-llvm-${{ env.LLVM_BRANCH }}
 
       - name: Build LLVM
-        if: steps.cache-llvm.outputs.cache-hit != 'true'
+        if: steps.cache-llvm-restore.outputs.cache-hit != 'true'
         shell: bash
         run: |
           git clone --depth 1 --branch ${{ env.LLVM_BRANCH }} https://github.com/llvm/llvm-project.git
@@ -60,6 +60,13 @@ jobs:
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_TARGETS_TO_BUILD="X86;AArch64"
           ninja -C build install
+
+      - name: Save LLVM cache
+        if: steps.cache-llvm-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.LLVM_INSTALL_PATH }}
+          key: ${{ runner.os }}-llvm-${{ env.LLVM_BRANCH }}
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
