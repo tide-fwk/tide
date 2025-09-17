@@ -156,7 +156,7 @@ pub trait BuilderMethods<'a, 'be>: Sized + CodegenBackendTypes {
     /// For instance, it could be `Indirect` if the return value is a large struct:
     /// ```rust
     /// struct LargeStruct { a: [u8; 1024] }
-    /// fn foo() -> LargeStruct { ... }
+    /// fn foo() -> LargeStruct { unimplemented!() }
     /// ```
     fn build_return(&mut self, return_value: Option<Self::Value>);
 
