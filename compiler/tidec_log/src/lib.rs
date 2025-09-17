@@ -222,6 +222,150 @@ impl Logger {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use tempfile::NamedTempFile;
+
+    fn with_env_vars<F>(vars: &[(&str, &str)], f: F)
+    where
+        F: FnOnce() + std::panic::UnwindSafe,
+    {
+        let original_vars: Vec<_> = vars.iter().map(|(k, _)| (*k, env::var(*k).ok())).collect();
+        for (k, v) in vars {
+            env::set_var(k, v);
+        }
+
+        let result = std::panic::catch_unwind(f);
+
+        for (k, v) in original_vars {
+            if let Some(val) = v {
+                env::set_var(k, val);
+            } else {
+                env::remove_var(k);
+            }
+        }
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_logger_config_from_prefix_defaults() {
+        with_env_vars(&[], || {
+            let cfg = LoggerConfig::from_prefix("TEST_PREFIX_DEFAULTS").unwrap();
+            assert!(cfg.filter.is_err());
+            assert!(cfg.color.is_err());
+            assert!(cfg.line_numbers.is_err());
+            assert!(cfg.file_names.is_err());
+            assert!(matches!(cfg.log_writer, LogWriter::Stderr));
+        });
+    }
+
+    #[test]
+    fn test_logger_config_from_prefix_custom() {
+        with_env_vars(
+            &[
+                ("TEST_PREFIX_CUSTOM_LOG", "debug"),
+                ("TEST_PREFIX_CUSTOM_LOG_COLOR", "always"),
+                ("TEST_PREFIX_CUSTOM_LOG_WRITER", "stdout"),
+                ("TEST_PREFIX_CUSTOM_LOG_LINE_NUMBERS", "1"),
+                ("TEST_PREFIX_CUSTOM_LOG_FILE_NAMES", "1"),
+            ],
+            || {
+                let cfg = LoggerConfig::from_prefix("TEST_PREFIX_CUSTOM").unwrap();
+                assert_eq!(cfg.filter.unwrap(), "debug");
+                assert_eq!(cfg.color.unwrap(), "always");
+                assert!(matches!(cfg.log_writer, LogWriter::Stdout));
+                assert_eq!(cfg.line_numbers.unwrap(), "1");
+                assert_eq!(cfg.file_names.unwrap(), "1");
+            },
+        );
+    }
+
+    #[test]
+    fn test_logger_config_log_writer_file() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let path = temp_file.path().to_str().unwrap();
+        with_env_vars(&[("TEST_WRITER_FILE_LOG_WRITER", path)], || {
+            let cfg = LoggerConfig::from_prefix("TEST_WRITER_FILE").unwrap();
+            match cfg.log_writer {
+                LogWriter::File(p) => assert_eq!(p.to_str().unwrap(), path),
+                _ => panic!("Expected LogWriter::File"),
+            }
+        });
+    }
+
+    #[test]
+    fn test_init_logger_basic() {
+        let cfg = LoggerConfig {
+            filter: Err(VarError::NotPresent),
+            color: Err(VarError::NotPresent),
+            log_writer: LogWriter::Stderr,
+            line_numbers: Err(VarError::NotPresent),
+            file_names: Err(VarError::NotPresent),
+        };
+        // Should not panic
+        let result = Logger::init_logger(cfg, FallbackDefaultEnv::No);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_init_logger_color_handling() {
+        // Valid color values
+        for color_val in &["always", "never", "auto"] {
+            let cfg = LoggerConfig {
+                filter: Ok("info".to_string()),
+                color: Ok(color_val.to_string()),
+                log_writer: LogWriter::Stderr,
+                line_numbers: Ok("0".to_string()),
+                file_names: Ok("0".to_string()),
+            };
+            assert!(Logger::init_logger(cfg, FallbackDefaultEnv::No).is_ok());
+        }
+
+        // Invalid color value
+        let cfg = LoggerConfig {
+            filter: Ok("info".to_string()),
+            color: Ok("invalid_color".to_string()),
+            log_writer: LogWriter::Stderr,
+            line_numbers: Ok("0".to_string()),
+            file_names: Ok("0".to_string()),
+        };
+        let err = Logger::init_logger(cfg, FallbackDefaultEnv::No).unwrap_err();
+        assert!(matches!(err, LogError::ColorNotValid(_)));
+    }
+
+    #[test]
+    fn test_init_logger_fallback_env() {
+        with_env_vars(&[("RUST_LOG", "warn")], || {
+            let cfg = LoggerConfig {
+                filter: Err(VarError::NotPresent), // No <PREFIX>_LOG
+                color: Err(VarError::NotPresent),
+                log_writer: LogWriter::Stderr,
+                line_numbers: Err(VarError::NotPresent),
+                file_names: Err(VarError::NotPresent),
+            };
+            // Should pick up RUST_LOG=warn
+            assert!(Logger::init_logger(cfg, FallbackDefaultEnv::Yes).is_ok());
+        });
+    }
+
+    #[test]
+    fn test_log_error_display() {
+        let color_err = LogError::ColorNotValid("blue".to_string());
+        assert_eq!(format!("{}", color_err), "Color not valid: blue");
+
+        let unicode_err = LogError::NotUnicode("bad".to_string());
+        assert_eq!(format!("{}", unicode_err), "Not unicode: bad");
+
+        // We can't easily create the inner errors for IoError and TryInitError,
+        // so we'll just check that they format without panicking.
+        let io_err = LogError::IoError(std::io::Error::new(std::io::ErrorKind::Other, "oh no!"));
+        assert!(format!("{}", io_err).contains("oh no!"));
+    }
+}
+
 impl std::error::Error for LogError {}
 
 impl std::fmt::Display for LogError {

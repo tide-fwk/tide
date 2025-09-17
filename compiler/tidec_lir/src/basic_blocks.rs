@@ -35,3 +35,18 @@ impl Idx for BasicBlock {
         self.0 += by;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_block_idx_impl() {
+        let mut bb = BasicBlock::new(5);
+        assert_eq!(bb.idx(), 5);
+        bb.incr();
+        assert_eq!(bb.idx(), 6);
+        bb.incr_by(10);
+        assert_eq!(bb.idx(), 16);
+    }
+}

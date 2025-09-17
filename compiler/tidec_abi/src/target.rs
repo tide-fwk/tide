@@ -69,6 +69,79 @@ impl LirTarget {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lir_target_new() {
+        let target = LirTarget::new(BackendKind::Llvm);
+        assert!(matches!(target.codegen_backend, BackendKind::Llvm));
+        assert!(target.target_triple.is_none());
+    }
+
+    #[test]
+    fn test_lir_target_data_layout_string() {
+        let target = LirTarget::new(BackendKind::Llvm);
+        let expected_default_layout = target.data_layout.as_llvm_datalayout_string();
+        assert_eq!(target.data_layout_string(), expected_default_layout);
+    }
+
+    #[test]
+    fn test_target_data_layout_default() {
+        let layout = TargetDataLayout::default();
+        assert_eq!(layout.endianess, Endianess::Big);
+        assert_eq!(layout.pointer_size, 64);
+    }
+
+    #[test]
+    fn test_as_llvm_datalayout_string() {
+        let default_layout = TargetDataLayout::default();
+        let default_string = default_layout.as_llvm_datalayout_string();
+        assert!(default_string.starts_with('E'));
+        assert!(default_string.contains("-p:64:512:512"));
+        assert!(default_string.contains("-i64:256:512"));
+        assert!(default_string.contains("-a:0:512"));
+        assert!(default_string.contains("-v64:512:512"));
+        assert!(default_string.contains("-v128:1024:1024"));
+        assert!(default_string.contains("-P0"));
+    }
+
+    #[test]
+    fn test_target_triple_new() {
+        let triple = TargetTriple::new("x86_64", "unknown", "linux", "gnu", "");
+        assert_eq!(triple.arch, "x86_64");
+        assert_eq!(triple.vendor, "unknown");
+        assert_eq!(triple.os, "linux");
+        assert_eq!(triple.env, "gnu");
+        assert_eq!(triple.abi, "");
+    }
+
+    #[test]
+    fn test_into_llvm_triple_string() {
+        let triple = TargetTriple::new("aarch64", "apple", "darwin", "none", "");
+        assert_eq!(
+            triple.into_llvm_triple_string(),
+            "aarch64-apple-darwin-none-"
+        );
+    }
+
+    #[test]
+    fn test_target_triple_string_some() {
+        let mut target = LirTarget::new(BackendKind::Llvm);
+        target.target_triple = Some(TargetTriple::new("x86_64", "pc", "windows", "msvc", ""));
+        let triple_string = target.target_triple_string();
+        assert!(triple_string.is_some());
+        assert_eq!(triple_string.unwrap(), "x86_64-pc-windows-msvc-");
+    }
+
+    #[test]
+    fn test_target_triple_string_none() {
+        let target = LirTarget::new(BackendKind::Llvm);
+        assert!(target.target_triple_string().is_none());
+    }
+}
+
 #[derive(Debug)]
 /// The backend kind for code generation.
 ///
@@ -164,7 +237,12 @@ impl TargetDataLayout {
     /// `e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128`
     pub fn as_llvm_datalayout_string(&self) -> String {
         let format_align = |name: &str, align: &AbiAndPrefAlign| {
-            format!("-{}:{}:{}", name, align.abi.bytes(), align.pref.bytes())
+            format!(
+                "-{}:{}:{}",
+                name,
+                align.abi.bytes() * 8,
+                align.pref.bytes() * 8
+            )
         };
 
         let mut s = String::new();
@@ -180,8 +258,8 @@ impl TargetDataLayout {
         s.push_str(&format!(
             "-p:{}:{}:{}",
             self.pointer_size,
-            self.pointer_align.abi.bytes(),
-            self.pointer_align.pref.bytes()
+            self.pointer_align.abi.bytes() * 8,
+            self.pointer_align.pref.bytes() * 8
         ));
 
         // Format for integer types
@@ -205,9 +283,9 @@ impl TargetDataLayout {
         for (size, align) in &self.vector_align {
             s.push_str(&format!(
                 "-v{}:{}:{}",
-                size.bytes(),
-                align.abi.bytes(),
-                align.pref.bytes()
+                size.bytes() * 8,
+                align.abi.bytes() * 8,
+                align.pref.bytes() * 8
             ));
         }
 
