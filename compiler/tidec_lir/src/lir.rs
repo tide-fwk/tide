@@ -326,3 +326,48 @@ impl LirCtx {
         &self.arguments.emit_kind
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tidec_abi::layout::BackendRepr;
+
+    #[test]
+    fn test_lir_ctx_new() {
+        let ctx = LirCtx::new(BackendKind::Llvm, EmitKind::Object);
+        assert!(matches!(ctx.backend_kind(), BackendKind::Llvm));
+        assert!(matches!(ctx.emit_kind(), EmitKind::Object));
+    }
+
+    #[test]
+    fn test_lir_ctx_layout_of_integers() {
+        let ctx = LirCtx::new(BackendKind::Llvm, EmitKind::Object);
+
+        // Test i8
+        let layout_i8 = ctx.layout_of(LirTy::I8);
+        assert_eq!(layout_i8.ty, LirTy::I8);
+        assert_eq!(layout_i8.layout.size.bytes(), 1);
+        assert_eq!(layout_i8.layout.align, ctx.target().data_layout.i8_align);
+        assert!(matches!(layout_i8.backend_repr, BackendRepr::Scalar(_)));
+
+        // Test i32
+        let layout_i32 = ctx.layout_of(LirTy::I32);
+        assert_eq!(layout_i32.ty, LirTy::I32);
+        assert_eq!(layout_i32.layout.size.bytes(), 4);
+        assert_eq!(
+            layout_i32.layout.align,
+            ctx.target().data_layout.i32_align
+        );
+        assert!(matches!(layout_i32.backend_repr, BackendRepr::Scalar(_)));
+
+        // Test i128
+        let layout_i128 = ctx.layout_of(LirTy::I128);
+        assert_eq!(layout_i128.ty, LirTy::I128);
+        assert_eq!(layout_i128.layout.size.bytes(), 16);
+        assert_eq!(
+            layout_i128.layout.align,
+            ctx.target().data_layout.i128_align
+        );
+        assert!(matches!(layout_i128.backend_repr, BackendRepr::Scalar(_)));
+    }
+}

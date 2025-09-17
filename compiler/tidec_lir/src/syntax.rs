@@ -3,7 +3,7 @@ use std::num::NonZero;
 use tidec_abi::size_and_align::Size;
 use tidec_utils::idx::Idx;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum LirTy {
     I8,
     I16,
@@ -388,6 +388,82 @@ impl Idx for Local {
 
     fn incr_by(&mut self, by: usize) {
         self.0 += by;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::num::NonZero;
+    use tidec_abi::size_and_align::Size;
+
+    #[test]
+    fn test_local_next() {
+        let local1 = Local(1);
+        assert_eq!(local1.next(), Local(2));
+    }
+
+    #[test]
+    fn test_place_try_local() {
+        let place_simple = Place {
+            local: Local(5),
+            projection: vec![],
+        };
+        assert_eq!(place_simple.try_local(), Some(Local(5)));
+
+        let place_projected = Place {
+            local: Local(5),
+            projection: vec![Projection::Todo],
+        };
+        assert_eq!(place_projected.try_local(), None);
+    }
+
+    #[test]
+    fn test_const_operand_accessors() {
+        let const_op = ConstOperand::Value(ConstValue::ZST, LirTy::I32);
+        assert!(matches!(const_op.ty(), LirTy::I32));
+        assert!(matches!(const_op.value(), ConstValue::ZST));
+    }
+
+    #[test]
+    fn test_raw_scalar_value_to_bits_success() {
+        let scalar = RawScalarValue {
+            data: 123,
+            size: NonZero::new(4).unwrap(),
+        };
+        let bits = scalar.to_bits(Size::from_bits(32));
+        assert_eq!(bits, 123);
+    }
+
+    #[test]
+    #[should_panic(expected = "Mismatched sizes: expected 8, got 4")]
+    fn test_raw_scalar_value_to_bits_panic() {
+        let scalar = RawScalarValue {
+            data: 123,
+            size: NonZero::new(4).unwrap(),
+        };
+        // This should panic because the size is 4 bytes (32 bits), but we ask for 64 bits.
+        scalar.to_bits(Size::from_bits(64));
+    }
+
+    #[test]
+    fn test_local_idx_impl() {
+        let mut local = Local::new(10);
+        assert_eq!(local.idx(), 10);
+        local.incr();
+        assert_eq!(local.idx(), 11);
+        local.incr_by(5);
+        assert_eq!(local.idx(), 16);
+    }
+
+    #[test]
+    fn test_body_idx_impl() {
+        let mut body = Body::new(20);
+        assert_eq!(body.idx(), 20);
+        body.incr();
+        assert_eq!(body.idx(), 21);
+        body.incr_by(10);
+        assert_eq!(body.idx(), 31);
     }
 }
 
