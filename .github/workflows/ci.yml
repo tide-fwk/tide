@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'compiler/**'
+      - 'Cargo.toml'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'compiler/**'
+      - 'Cargo.toml'
+      - '.github/workflows/ci.yml'
+
+env:
+  LLVM_VERSION: 18.1.0-rc1
+  LLVM_INSTALL_PATH: ${{ github.workspace }}/llvm-install
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y wget tar cmake ninja-build
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install wget cmake ninja
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: choco install wget cmake ninja
+
+      - name: Cache LLVM
+        id: cache-llvm
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.LLVM_INSTALL_PATH }}
+          key: ${{ runner.os }}-llvm-${{ env.LLVM_VERSION }}
+
+      - name: Build LLVM
+        if: steps.cache-llvm.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          wget https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-${{ env.LLVM_VERSION }}.tar.gz
+          tar -xzf llvmorg-${{ env.LLVM_VERSION }}.tar.gz
+          cd llvm-project-llvmorg-${{ env.LLVM_VERSION }}
+          cmake -S llvm -B build -G Ninja \
+            -DCMAKE_INSTALL_PREFIX=${{ env.LLVM_INSTALL_PATH }} \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ENABLE_PROJECTS="clang;lld"
+          ninja -C build install
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Add LLVM to path
+        shell: bash
+        run: echo "${{ env.LLVM_INSTALL_PATH }}/bin" >> $GITHUB_PATH
+
+      - name: Build project
+        run: cargo build --verbose
+
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Check formatting
+        run: cargo fmt -- --check
